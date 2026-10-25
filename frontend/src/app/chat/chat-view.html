@@ -1,0 +1,91 @@
+<header class="flex h-12 shrink-0 items-center gap-3 border-b border-line px-3">
+  <button
+    type="button"
+    class="grid size-8 place-items-center rounded-lg text-ink-muted hover:bg-elevated hover:text-ink"
+    aria-label="Toggle sidebar"
+    (click)="toggleSidebar.emit()"
+  >
+    <app-icon name="panel-left" />
+  </button>
+  <div class="h-4 w-px bg-line"></div>
+  <h1 class="truncate text-sm font-medium text-ink">{{ title() }}</h1>
+</header>
+
+<div #scroller class="flex-1 overflow-y-auto">
+  @if (!chat.turns().length) {
+    <div class="mx-auto flex min-h-full max-w-2xl flex-col items-center justify-center px-6 py-12 text-center">
+      <div
+        class="grid size-12 place-items-center rounded-xl bg-linear-to-br from-violet-500 to-indigo-600 text-white shadow-lg shadow-indigo-900/40"
+      >
+        <app-icon name="sparkles" [size]="22" />
+      </div>
+      <h2 class="mt-5 text-2xl font-semibold tracking-tight text-ink">Find any file by describing it</h2>
+      <p class="mt-2 max-w-md text-sm leading-relaxed text-ink-muted">
+        FileMind reads what's inside your PDFs, Word documents and text files, so you don't need to remember filenames.
+      </p>
+      @if (!docs.documents().length) {
+        <p class="mt-4 text-sm text-ink-faint">Start by uploading a few documents from the sidebar, or drop them anywhere here.</p>
+      }
+
+      <div class="mt-8 grid w-full gap-2 sm:grid-cols-2">
+        @for (example of examples; track example) {
+          <button
+            type="button"
+            class="rounded-xl border border-line bg-panel px-4 py-3 text-left text-sm text-ink-muted hover:border-line-strong hover:text-ink disabled:opacity-50"
+            [disabled]="chat.busy()"
+            (click)="send(example)"
+          >
+            {{ example }}
+          </button>
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="mx-auto w-full max-w-3xl space-y-8 px-4 py-6">
+      @for (turn of chat.turns(); track turn.id) {
+        <div class="scroll-mt-4 space-y-3" [id]="'turn-' + turn.id">
+          <div class="flex justify-end">
+            <div class="max-w-[85%] whitespace-pre-line rounded-2xl border border-line bg-elevated px-4 py-2 text-sm text-ink">
+              {{ turn.query }}
+            </div>
+          </div>
+          <app-assistant-message [turn]="turn" (retry)="chat.retry($event)" />
+        </div>
+      }
+    </div>
+  }
+</div>
+
+<footer class="shrink-0 px-4 pb-4 pt-2">
+  <form
+    class="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-2xl border border-line bg-elevated px-3 py-2 focus-within:border-line-strong"
+    (submit)="$event.preventDefault(); send()"
+  >
+    <label for="composer" class="sr-only">Describe the file you're looking for</label>
+    <textarea
+      #box
+      id="composer"
+      rows="1"
+      placeholder="Describe the file you're looking for…"
+      class="max-h-40 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+      [value]="draft()"
+      (input)="onDraft(box)"
+      (keydown.enter)="onEnter($event)"
+    ></textarea>
+    <button
+      type="submit"
+      class="grid size-9 shrink-0 place-items-center rounded-xl bg-accent text-white hover:brightness-110 disabled:bg-raised disabled:text-ink-faint"
+      aria-label="Search"
+      [disabled]="!canSend()"
+    >
+      @if (chat.busy()) {
+        <app-icon name="loader" class="animate-spin" />
+      } @else {
+        <app-icon name="arrow-up" />
+      }
+    </button>
+  </form>
+  <p class="mx-auto mt-2 max-w-3xl text-center text-[11px] text-ink-faint">
+    Document text is sent to OpenAI (embeddings) and Anthropic (reasoning). Answers only cite files the search actually returned.
+  </p>
+</footer>

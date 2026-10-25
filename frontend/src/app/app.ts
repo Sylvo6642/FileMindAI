@@ -1,36 +1,79 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, viewChild } from '@angular/core';
 
-import { HealthResponse, HealthService } from './core/health.service';
+import { ChatView } from './chat/chat-view';
+import { ChatStore } from './core/chat.store';
+import { DocumentsStore } from './core/documents.store';
+import { Sidebar } from './layout/sidebar';
+import { Icon } from './ui/icon';
 
-type BackendState = 'checking' | 'ok' | 'error';
+const DESKTOP_QUERY = '(min-width: 768px)';
 
 @Component({
-  imports: [],
+  imports: [Sidebar, ChatView, Icon],
   selector: 'app-root',
-  styleUrl: './app.css',
   templateUrl: './app.html',
+  host: {
+    class: 'block h-full',
+    '(dragenter)': 'onDragEnter($event)',
+    '(dragover)': '$event.preventDefault()',
+    '(dragleave)': 'onDragLeave($event)',
+    '(drop)': 'onDrop($event)',
+  },
 })
 export class App {
-  private readonly healthService = inject(HealthService);
+  private readonly docs = inject(DocumentsStore);
+  private readonly chat = inject(ChatStore);
+  private readonly chatView = viewChild(ChatView);
 
-  protected readonly state = signal<BackendState>('checking');
-  protected readonly health = signal<HealthResponse | null>(null);
+  protected readonly isDesktop = signal(matchMedia(DESKTOP_QUERY).matches);
+  protected readonly sidebarOpen = signal(this.isDesktop());
+  protected readonly dragging = signal(false);
 
   constructor() {
-    this.checkBackend();
+    void this.docs.load();
+    matchMedia(DESKTOP_QUERY).addEventListener('change', (event) => {
+      this.isDesktop.set(event.matches);
+      this.sidebarOpen.set(event.matches);
+    });
   }
 
-  protected checkBackend(): void {
-    this.state.set('checking');
-    this.healthService.getHealth().subscribe({
-      next: (response) => {
-        this.health.set(response);
-        this.state.set('ok');
-      },
-      error: () => {
-        this.health.set(null);
-        this.state.set('error');
-      },
-    });
+  protected newSearch(): void {
+    this.chat.clear();
+    this.closeSidebarOnMobile();
+    this.chatView()?.focusComposer();
+  }
+
+  protected showTurn(id: number): void {
+    this.closeSidebarOnMobile();
+    this.chatView()?.scrollToTurn(id);
+  }
+
+  protected closeSidebarOnMobile(): void {
+    if (!this.isDesktop()) {
+      this.sidebarOpen.set(false);
+    }
+  }
+
+  protected onDragEnter(event: DragEvent): void {
+    if (event.dataTransfer?.types.includes('Files')) {
+      event.preventDefault();
+      this.dragging.set(true);
+    }
+  }
+
+  protected onDragLeave(event: DragEvent): void {
+    // Only hide the overlay when the pointer leaves the window, not a child element.
+    if (!event.relatedTarget) {
+      this.dragging.set(false);
+    }
+  }
+
+  protected onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.dragging.set(false);
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    if (files.length) {
+      void this.docs.uploadFiles(files);
+    }
   }
 }

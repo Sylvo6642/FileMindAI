@@ -1,3 +1,36 @@
-/* You can add global styles to this file, and also import other style files */
-
 @import 'tailwindcss';
+
+/* Design tokens: a restrained dark palette with one blue accent. */
+@theme {
+  --color-canvas: #0b0b0d;
+  --color-panel: #111114;
+  --color-elevated: #17171b;
+  --color-raised: #1f1f24;
+  --color-line: #26262c;
+  --color-line-strong: #3a3a42;
+  --color-ink: #ececef;
+  --color-ink-muted: #a3a3ad;
+  --color-ink-faint: #6e6e78;
+  --color-accent: #4f8cff;
+
+  --font-sans: 'Inter', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin, quiet scrollbars to match the panels. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
