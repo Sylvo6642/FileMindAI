@@ -9,14 +9,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health
+from app.api import documents, health
 from app.core.config import settings
+from app.core.database import init_db
+from app.core.errors import register_error_handlers
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Runs once at startup: make sure data/uploads and data/chroma exist.
+    # Runs once at startup: create data folders and the SQLite schema.
     settings.ensure_data_dirs()
+    init_db()
     yield
 
 
@@ -29,4 +32,7 @@ app.add_middleware(
     allow_headers=["Content-Type"],
 )
 
+register_error_handlers(app)
+
 app.include_router(health.router)
+app.include_router(documents.router)

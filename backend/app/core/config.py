@@ -20,7 +20,7 @@ def _split_csv(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-@dataclass(frozen=True)
+@dataclass
 class Settings:
     app_name: str = "FileMind AI"
     version: str = "0.1.0"
@@ -38,6 +38,10 @@ class Settings:
     )
 
     data_dir: Path = BACKEND_DIR / "data"
+
+    max_upload_bytes: int = 20 * 1024 * 1024
+    chunk_size_tokens: int = 600
+    chunk_overlap_tokens: int = 100
 
     @property
     def uploads_dir(self) -> Path:

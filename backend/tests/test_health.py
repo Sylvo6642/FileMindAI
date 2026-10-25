@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app.core.config import BACKEND_DIR, settings
+from app.core.config import BACKEND_DIR, Settings, settings
 from app.main import app
 
 
@@ -33,7 +33,8 @@ def test_cors_allows_angular_origin_only():
     assert "access-control-allow-origin" not in blocked.headers
 
 
-def test_data_paths_live_inside_backend():
-    assert settings.data_dir == BACKEND_DIR / "data"
-    assert settings.uploads_dir.is_relative_to(BACKEND_DIR)
-    assert settings.sqlite_path.name == "filemind.db"
+def test_default_data_paths_live_inside_backend():
+    defaults = Settings()  # the conftest fixture redirects `settings` to a temp dir
+    assert defaults.data_dir == BACKEND_DIR / "data"
+    assert defaults.uploads_dir.is_relative_to(BACKEND_DIR)
+    assert defaults.sqlite_path.name == "filemind.db"
