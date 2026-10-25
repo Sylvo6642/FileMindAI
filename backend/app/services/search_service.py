@@ -51,8 +51,11 @@ class FileMatch:
     excerpts: list[Excerpt] = field(default_factory=list)
 
 
-def search_files(query: str, limit: int = 5) -> list[FileMatch]:
-    query_vector = embedding_service.embed_query(query)
+def search_files(
+    query: str, limit: int = 5, query_vector: list[float] | None = None
+) -> list[FileMatch]:
+    if query_vector is None:
+        query_vector = embedding_service.embed_query(query)
     hits = _nearest_chunks_covering_files(query_vector, limit)
 
     plausible = [hit for hit in hits if hit.distance <= settings.search_max_distance]

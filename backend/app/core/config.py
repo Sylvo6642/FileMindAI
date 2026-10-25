@@ -57,6 +57,18 @@ class Settings:
     search_max_distance: float = 0.85
     search_excerpts_per_file: int = 3
     search_excerpt_chars: int = 400
+
+    # Claude agent. Haiku 5.5 thinks adaptively; effort controls how much.
+    agent_effort: str = field(default_factory=lambda: os.getenv("AGENT_EFFORT", "medium"))
+    agent_max_tool_rounds: int = 5
+    agent_max_tokens: int = 16000
+    anthropic_timeout_seconds: float = 60.0
+    anthropic_max_retries: int = 2
+
+    # inspect_file returns a bounded view, never the whole document.
+    inspect_preview_chars: int = 1500
+    inspect_passages: int = 3
+    inspect_passage_chars: int = 800
     openai_timeout_seconds: float = 30.0
     openai_max_retries: int = 3
 

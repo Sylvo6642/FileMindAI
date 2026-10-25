@@ -3,20 +3,75 @@ from dataclasses import asdict
 from fastapi import APIRouter
 
 from app.core.errors import ApiError
+from app.models.agent import (
+    ActivityStepOut,
+    AgentMatchOut,
+    AgentSearchRequest,
+    AgentSearchResponse,
+    MatchExcerptOut,
+    UsageOut,
+)
 from app.models.search import FileMatchOut, SemanticSearchRequest, SemanticSearchResponse
-from app.services import search_service, vector_service
+from app.services import agent_service, search_service, vector_service
+from app.services.agent_service import AgentError
 from app.services.embedding_service import EmbeddingError
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
 
-# Retrieval only, no LLM. Stage 5 adds POST /api/search, where Claude calls
-# this same search as a tool and reasons about the results.
-@router.post("/semantic", response_model=SemanticSearchResponse)
-def semantic_search(request: SemanticSearchRequest) -> SemanticSearchResponse:
-    query = request.query.strip()
+def _clean_query(query: str) -> str:
+    query = query.strip()
     if not query:
         raise ApiError(400, "empty_query", "Search query cannot be blank.")
+    return query
+
+
+@router.post("", response_model=AgentSearchResponse)
+def agent_search(request: AgentSearchRequest) -> AgentSearchResponse:
+    """Claude decides which tools to call; the backend runs them and verifies the answer."""
+    query = _clean_query(request.query)
+
+    if vector_service.count_all_vectors() == 0:
+        # Nothing to search: answer directly instead of paying for an LLM call.
+        return AgentSearchResponse(
+            query=query,
+            answer="No documents have been indexed yet. Upload some files first.",
+            matches=[], activity=[], tool_rounds=0, model=None,
+            usage=UsageOut(input_tokens=0, output_tokens=0),
+        )
+
+    try:
+        result = agent_service.run_search_agent(query)
+    except AgentError as exc:
+        raise ApiError(502, "assistant_unavailable", str(exc))
+
+    return AgentSearchResponse(
+        query=query,
+        answer=result.answer,
+        matches=[
+            AgentMatchOut(
+                file_id=m.file_id,
+                filename=m.filename,
+                file_type=m.file_type,
+                reason=m.reason,
+                similarity=m.similarity,
+                excerpts=[
+                    MatchExcerptOut(location=e["location"], text=e["document_text"]) for e in m.excerpts
+                ],
+            )
+            for m in result.matches
+        ],
+        activity=[ActivityStepOut(**asdict(step)) for step in result.activity],
+        tool_rounds=result.tool_rounds,
+        model=result.model,
+        usage=UsageOut(input_tokens=result.input_tokens, output_tokens=result.output_tokens),
+    )
+
+
+# Retrieval only, no LLM. Useful for debugging and for measuring retrieval quality.
+@router.post("/semantic", response_model=SemanticSearchResponse)
+def semantic_search(request: SemanticSearchRequest) -> SemanticSearchResponse:
+    query = _clean_query(request.query)
 
     if vector_service.count_all_vectors() == 0:
         return SemanticSearchResponse(

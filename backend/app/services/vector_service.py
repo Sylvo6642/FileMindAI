@@ -105,15 +105,28 @@ def count_all_vectors() -> int:
     return _collection().count()
 
 
-def query_chunks(embedding: list[float], n_results: int) -> list[ChunkHit]:
-    """Return the n chunks whose vectors are closest to the query vector."""
+def get_file_chunks(file_id: str) -> list[tuple[int, str, dict[str, Any]]]:
+    """All stored chunks of one file as (chunk_index, text, metadata), in order."""
+    result = _collection().get(where={"file_id": file_id}, include=["documents", "metadatas"])
+    chunks = [
+        (int(metadata["chunk_index"]), text or "", dict(metadata))
+        for text, metadata in zip(result["documents"], result["metadatas"])
+    ]
+    return sorted(chunks, key=lambda chunk: chunk[0])
+
+
+def query_chunks(
+    embedding: list[float], n_results: int, file_id: str | None = None
+) -> list[ChunkHit]:
+    """Return the n chunks closest to the query vector, optionally within one file."""
     collection = _collection()
-    total = collection.count()
+    total = count_file_vectors(file_id) if file_id else collection.count()
     if total == 0:
         return []
     result = collection.query(
         query_embeddings=[embedding],
         n_results=min(n_results, total),
+        where={"file_id": file_id} if file_id else None,
         include=["documents", "metadatas", "distances"],
     )
     hits = []
