@@ -15,6 +15,8 @@ import { Icon } from '../ui/icon';
     class: 'flex h-full w-72 flex-col border-r border-line bg-panel',
     '(document:click)': 'onDocumentClick($event)',
     '(document:keydown.escape)': 'closeMenu()',
+    // Coming back to the tab (e.g. after restarting the backend) refreshes status.
+    '(window:focus)': 'refresh()',
   },
 })
 export class Sidebar {
@@ -56,6 +58,11 @@ export class Sidebar {
       },
       error: () => this.healthState.set('offline'),
     });
+  }
+
+  protected refresh(): void {
+    this.checkHealth();
+    void this.docs.load();
   }
 
   protected onFilesPicked(input: HTMLInputElement): void {

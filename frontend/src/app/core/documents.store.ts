@@ -8,6 +8,7 @@ import { DocumentList, DocumentRecord } from './models';
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.txt'];
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+const REFRESH_MS = 3000;
 
 export interface UploadItem {
   id: number;
@@ -25,11 +26,17 @@ export class DocumentsStore {
   readonly documents = signal<DocumentRecord[]>([]);
   readonly uploads = signal<UploadItem[]>([]);
   readonly loading = signal(false);
+  /** True once the list has been fetched at least once. */
+  readonly loaded = signal(false);
   readonly notice = signal<string | null>(null);
 
   readonly indexedCount = computed(
     () => this.documents().filter((d) => d.status === 'indexed').length,
   );
+  /** Searching an empty library is pointless; before the first load we can't tell, so allow it. */
+  readonly canSearch = computed(() => !this.loaded() || this.indexedCount() > 0);
+
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
 
   openUrl(fileId: string): string {
     return `${API_BASE_URL}/documents/${fileId}/open`;
@@ -40,6 +47,8 @@ export class DocumentsStore {
     try {
       const list = await firstValueFrom(this.http.get<DocumentList>(`${API_BASE_URL}/documents`));
       this.documents.set(list.documents);
+      this.loaded.set(true);
+      this.scheduleRefresh();
     } catch (error) {
       this.notice.set(describeHttpError(error));
     } finally {
@@ -64,7 +73,8 @@ export class DocumentsStore {
         const record = await firstValueFrom(
           this.http.post<DocumentRecord>(`${API_BASE_URL}/documents/upload`, form),
         );
-        this.documents.update((docs) => [record, ...docs]);
+        // A refresh during the upload may already list this document.
+        this.documents.update((docs) => [record, ...docs.filter((d) => d.file_id !== record.file_id)]);
         this.dismissUpload(id);
       } catch (error) {
         this.uploads.update((items) =>
@@ -99,6 +109,18 @@ export class DocumentsStore {
       this.documents.update((docs) => docs.filter((d) => d.file_id !== doc.file_id));
     } catch (error) {
       this.notice.set(describeHttpError(error));
+    }
+  }
+
+  // Another tab, or a refresh mid-upload, can show documents still being indexed.
+  // Check back until they settle, so the sidebar never needs a manual reload.
+  private scheduleRefresh(): void {
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+    if (this.documents().some((d) => d.status === 'pending' || d.status === 'processing')) {
+      this.refreshTimer = setTimeout(() => void this.load(), REFRESH_MS);
     }
   }
 

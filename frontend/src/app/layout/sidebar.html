@@ -117,7 +117,7 @@
               >{{ doc.filename }}</a
             >
 
-            <span class="grid size-4 place-items-center" [title]="statusTitle(doc)">
+            <span class="grid size-4 place-items-center" role="img" [title]="statusTitle(doc)" [attr.aria-label]="statusTitle(doc)">
               @switch (doc.status) {
                 @case ('indexed') {
                   <span class="size-1.5 rounded-full bg-emerald-400"></span>
@@ -137,6 +137,8 @@
                 class="grid size-6 place-items-center rounded text-ink-faint opacity-0 hover:bg-raised hover:text-ink focus:opacity-100 group-hover:opacity-100"
                 [class.opacity-100]="menuFor() === doc.file_id"
                 [attr.aria-label]="'Actions for ' + doc.filename"
+                aria-haspopup="menu"
+                [attr.aria-expanded]="menuFor() === doc.file_id"
                 (click)="toggleMenu(doc.file_id, $event)"
               >
                 <app-icon name="more" />
@@ -174,6 +176,14 @@
               }
             </div>
           </li>
+          @if (doc.status === 'failed') {
+            <li class="-mt-0.5 flex items-start gap-2 pb-1.5 pl-9 pr-2 text-xs leading-snug text-rose-300/90">
+              <span class="min-w-0 flex-1">{{ doc.error_message ?? 'Indexing failed.' }}</span>
+              <button type="button" class="shrink-0 text-ink-muted underline hover:text-ink" (click)="reindex(doc)">
+                Retry
+              </button>
+            </li>
+          }
         } @empty {
           @if (!docs.uploads().length) {
             <li class="px-3 py-2 text-xs text-ink-faint">
@@ -240,7 +250,7 @@
       <div class="flex items-center gap-2 text-rose-300">
         <span class="size-2 rounded-full bg-rose-400"></span>
         Backend offline
-        <button type="button" class="ml-auto text-ink-muted underline hover:text-ink" (click)="checkHealth(); docs.load()">
+        <button type="button" class="ml-auto text-ink-muted underline hover:text-ink" (click)="refresh()">
           Retry
         </button>
       </div>

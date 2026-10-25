@@ -9,7 +9,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.core.errors import ApiError
-from app.services import embedding_service, vector_service
+from app.services import consistency_service, embedding_service, vector_service
 from app.services.embedding_service import EmbeddingError
 
 router = APIRouter(prefix="/api/debug", tags=["debug"])
@@ -40,6 +40,23 @@ class NearestChunksResponse(BaseModel):
 _REFERENCE_KEYS = (
     "page_start", "page_end", "paragraph_start", "paragraph_end", "line_start", "line_end", "section",
 )
+
+
+class ConsistencyOut(BaseModel):
+    ok: bool
+    documents: int
+    vectors: int
+    orphan_files: list[str]
+    orphan_vectors: dict[str, int]
+    missing_files: list[str]
+    vector_mismatches: dict[str, dict[str, int]]
+
+
+@router.get("/consistency", response_model=ConsistencyOut)
+def consistency() -> ConsistencyOut:
+    """Read-only report: do SQLite, uploads/ and ChromaDB agree? (Repair runs at startup.)"""
+    report = consistency_service.check()
+    return ConsistencyOut(ok=report.ok, **vars(report))
 
 
 @router.post("/nearest-chunks", response_model=NearestChunksResponse)

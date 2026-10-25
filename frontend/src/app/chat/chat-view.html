@@ -32,7 +32,7 @@
           <button
             type="button"
             class="rounded-xl border border-line bg-panel px-4 py-3 text-left text-sm text-ink-muted hover:border-line-strong hover:text-ink disabled:opacity-50"
-            [disabled]="chat.busy()"
+            [disabled]="chat.busy() || !docs.canSearch()"
             (click)="send(example)"
           >
             {{ example }}
@@ -66,7 +66,7 @@
       #box
       id="composer"
       rows="1"
-      placeholder="Describe the file you're looking for…"
+      [placeholder]="placeholder()"
       class="max-h-40 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-sm text-ink placeholder:text-ink-faint focus:outline-none"
       [value]="draft()"
       (input)="onDraft(box)"

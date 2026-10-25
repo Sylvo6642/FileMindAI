@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { vi } from 'vitest';
 
 import { API_BASE_URL } from './api.config';
 import { DocumentsStore } from './documents.store';
@@ -47,6 +48,48 @@ describe('DocumentsStore', () => {
 
     expect(store.documents().map((d) => d.filename)).toEqual(['agreement_001.pdf']);
     expect(store.indexedCount()).toBe(1);
+  });
+
+  it('allows searching only when something is indexed', async () => {
+    expect(store.canSearch()).toBe(true); // unknown before the first load
+
+    let loading = store.load();
+    http.expectOne(`${API_BASE_URL}/documents`).flush({ count: 1, documents: [makeDoc({ status: 'failed' })] });
+    await loading;
+    expect(store.canSearch()).toBe(false);
+
+    loading = store.load();
+    http.expectOne(`${API_BASE_URL}/documents`).flush({ count: 1, documents: [makeDoc()] });
+    await loading;
+    expect(store.canSearch()).toBe(true);
+  });
+
+  it('checks back while a document is still indexing', async () => {
+    vi.useFakeTimers();
+    try {
+      const loading = store.load();
+      http.expectOne(`${API_BASE_URL}/documents`).flush({ count: 1, documents: [makeDoc({ status: 'processing' })] });
+      await loading;
+
+      await vi.advanceTimersByTimeAsync(3000);
+      http.expectOne(`${API_BASE_URL}/documents`).flush({ count: 1, documents: [makeDoc()] });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(store.documents()[0].status).toBe('indexed');
+
+      await vi.advanceTimersByTimeAsync(10000);
+      http.expectNone(`${API_BASE_URL}/documents`); // settled: polling stops
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not list an upload twice when a refresh already picked it up', async () => {
+    const uploading = store.uploadFiles([new File(['hello'], 'notes.txt')]);
+    store.documents.set([makeDoc({ status: 'processing' })]); // refresh mid-upload
+    http.expectOne(`${API_BASE_URL}/documents/upload`).flush(makeDoc());
+    await uploading;
+
+    expect(store.documents().map((d) => d.status)).toEqual(['indexed']);
   });
 
   it('uploads a file and adds the indexed record', async () => {

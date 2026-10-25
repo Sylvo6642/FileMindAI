@@ -28,13 +28,15 @@ describe('App', () => {
     vi.unstubAllGlobals();
   });
 
-  async function render() {
+  const LIBRARY = [
+    makeDoc(),
+    makeDoc({ file_id: 'b2', filename: 'notes.txt', file_type: 'txt', status: 'failed', error_message: 'No key' }),
+  ];
+
+  async function render(documents = LIBRARY) {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable(); // first render: the sidebar asks for /health
-    http.expectOne(`${API_BASE_URL}/documents`).flush({
-      count: 2,
-      documents: [makeDoc(), makeDoc({ file_id: 'b2', filename: 'notes.txt', file_type: 'txt', status: 'failed', error_message: 'No key' })],
-    });
+    http.expectOne(`${API_BASE_URL}/documents`).flush({ count: documents.length, documents });
     http.expectOne(`${API_BASE_URL}/health`).flush({
       status: 'ok', app: 'FileMind AI', version: '0.1.0', openai_configured: true, anthropic_configured: true,
     });
@@ -50,7 +52,19 @@ describe('App', () => {
     expect(el.textContent).toContain('agreement_001.pdf');
     expect(el.textContent).toContain('notes.txt');
     expect(el.textContent).toContain('Backend connected');
-    expect(el.querySelector('[title="No key"]')).not.toBeNull(); // failed status shows its reason
+    expect(el.querySelector('[aria-label="No key"]')).not.toBeNull(); // status is announced
+    expect(el.textContent).toContain('No key'); // failure reason visible without hovering
+  });
+
+  it('disables searching until a document is indexed', async () => {
+    const { el } = await render([makeDoc({ status: 'failed', error_message: 'No key' })]);
+
+    const composer = el.querySelector('textarea')!;
+    expect(composer.placeholder).toBe('Upload a document to start searching');
+    const example = Array.from(el.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('software development agreement'),
+    )!;
+    expect(example.disabled).toBe(true);
   });
 
   it('runs a search from an example and renders the answer with match cards', async () => {

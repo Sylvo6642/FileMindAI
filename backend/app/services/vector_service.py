@@ -105,6 +105,15 @@ def count_all_vectors() -> int:
     return _collection().count()
 
 
+def vector_counts_by_file() -> dict[str, int]:
+    """How many vectors each file_id has (used by the consistency check)."""
+    counts: dict[str, int] = {}
+    for metadata in _collection().get(include=["metadatas"])["metadatas"]:
+        file_id = str(metadata["file_id"])
+        counts[file_id] = counts.get(file_id, 0) + 1
+    return counts
+
+
 def get_file_chunks(file_id: str) -> list[tuple[int, str, dict[str, Any]]]:
     """All stored chunks of one file as (chunk_index, text, metadata), in order."""
     result = _collection().get(where={"file_id": file_id}, include=["documents", "metadatas"])

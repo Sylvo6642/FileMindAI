@@ -26,7 +26,14 @@ export class ChatView {
 
   protected readonly examples = EXAMPLES;
   protected readonly draft = signal('');
-  protected readonly canSend = computed(() => this.draft().trim().length > 0 && !this.chat.busy());
+  protected readonly canSend = computed(
+    () => this.draft().trim().length > 0 && !this.chat.busy() && this.docs.canSearch(),
+  );
+  protected readonly placeholder = computed(() =>
+    this.docs.canSearch()
+      ? 'Describe the file you’re looking for…'
+      : 'Upload a document to start searching',
+  );
   protected readonly title = computed(() => this.chat.turns()[0]?.query ?? 'New search');
 
   private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
@@ -58,7 +65,7 @@ export class ChatView {
   }
 
   protected send(text = this.draft()): void {
-    if (!text.trim() || this.chat.busy()) {
+    if (!text.trim() || this.chat.busy() || !this.docs.canSearch()) {
       return;
     }
     this.chat.ask(text);

@@ -14,7 +14,7 @@ from app.api import debug, documents, health, search
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.errors import register_error_handlers
-from app.services import metadata_service
+from app.services import consistency_service, metadata_service
 
 logger = logging.getLogger("filemind")
 
@@ -29,6 +29,12 @@ async def lifespan(app: FastAPI):
     interrupted = metadata_service.mark_unfinished_as_failed()
     if interrupted:
         logger.warning("Marked %d interrupted document(s) as failed", interrupted)
+    # Bring SQLite, uploads/ and ChromaDB back into agreement. A problem here
+    # is logged, never fatal: the app can still serve what is consistent.
+    try:
+        consistency_service.repair()
+    except Exception:
+        logger.exception("Consistency repair failed")
     yield
 
 
