@@ -1,0 +1,23 @@
+# Secrets
+.env
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Runtime data: uploaded documents, vectors, metadata
+backend/data/
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
