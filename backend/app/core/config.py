@@ -43,6 +43,17 @@ class Settings:
     chunk_size_tokens: int = 600
     chunk_overlap_tokens: int = 100
 
+    # Documents and queries must always be embedded with the same model.
+    embedding_model: str = field(
+        default_factory=lambda: os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    )
+    embedding_dimensions: int = field(
+        default_factory=lambda: int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
+    )
+    embedding_batch_size: int = 100
+    openai_timeout_seconds: float = 30.0
+    openai_max_retries: int = 3
+
     @property
     def uploads_dir(self) -> Path:
         return self.data_dir / "uploads"

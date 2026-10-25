@@ -87,6 +87,42 @@ def list_documents() -> list[DocumentRecord]:
     return [_to_record(row) for row in rows]
 
 
+def update_status(
+    file_id: str,
+    status: str,
+    error_message: str | None = None,
+    chunk_count: int | None = None,
+) -> DocumentRecord:
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE documents
+            SET status = ?, error_message = ?, chunk_count = COALESCE(?, chunk_count), updated_at = ?
+            WHERE file_id = ?
+            """,
+            (status, error_message, chunk_count, _now(), file_id),
+        )
+    record = get_document(file_id)
+    assert record is not None
+    return record
+
+
+def mark_unfinished_as_failed() -> int:
+    """At startup, anything still pending/processing was interrupted by a shutdown."""
+    with connect() as conn:
+        cursor = conn.execute(
+            """
+            UPDATE documents
+            SET status = 'failed',
+                error_message = 'Indexing did not finish (the server stopped). Reindex to retry.',
+                updated_at = ?
+            WHERE status IN ('pending', 'processing')
+            """,
+            (_now(),),
+        )
+        return cursor.rowcount
+
+
 def delete_document(file_id: str) -> None:
     with connect() as conn:
         conn.execute("DELETE FROM documents WHERE file_id = ?", (file_id,))

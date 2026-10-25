@@ -9,6 +9,10 @@ pymupdf==2.0
 python-docx==1.2.0
 tiktoken==0.14.0
 
+# Embeddings and vector storage
+openai==3.37.0
+chromadb==1.5.9
+
 # Testing
 pytest==9.1.1
 httpx2==2.16.0

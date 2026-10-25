@@ -22,8 +22,12 @@ copy .env.example .env
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+Add `--reload-include .env` to also restart the server when you edit `.env`.
+
 If `Activate.ps1` is blocked by execution policy, skip activation and call the venv's
 Python directly: `.\.venv\Scripts\python.exe -m uvicorn ...`
+
+> **Privacy:** uploaded document text is sent to OpenAI to generate embeddings.
 
 Tests: `python -m pytest`
 

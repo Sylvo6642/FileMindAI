@@ -2,6 +2,7 @@ import uuid
 from dataclasses import asdict
 
 from fastapi import APIRouter, Query, Response, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 
 from app.core.config import settings
@@ -48,7 +49,8 @@ async def _read_limited(file: UploadFile) -> bytes:
 @router.post("/upload", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)
 async def upload_document(file: UploadFile) -> DocumentOut:
     data = await _read_limited(file)
-    record = document_service.ingest_upload(file.filename, data)
+    # Extraction and OpenAI calls are slow and blocking: run them off the event loop.
+    record = await run_in_threadpool(document_service.ingest_upload, file.filename, data)
     return _to_out(record)
 
 
@@ -90,6 +92,12 @@ def preview_chunks(
             for c in chunks[:limit]
         ],
     )
+
+
+@router.post("/{file_id}/reindex", response_model=DocumentOut)
+def reindex_document(file_id: uuid.UUID) -> DocumentOut:
+    record = document_service.get_document_or_404(str(file_id))
+    return _to_out(document_service.reindex_document(record))
 
 
 @router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
