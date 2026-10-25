@@ -51,6 +51,12 @@ class Settings:
         default_factory=lambda: int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
     )
     embedding_batch_size: int = 100
+
+    # Measured on the sample set: relevant top hits scored 0.38-0.59 distance,
+    # weaker candidates up to ~0.76, nonsense queries 0.89+. Re-check in Stage 8.
+    search_max_distance: float = 0.85
+    search_excerpts_per_file: int = 3
+    search_excerpt_chars: int = 400
     openai_timeout_seconds: float = 30.0
     openai_max_retries: int = 3
 

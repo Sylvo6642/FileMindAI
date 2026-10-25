@@ -81,6 +81,17 @@ def get_document_by_hash(sha256: str) -> DocumentRecord | None:
     return _to_record(row) if row else None
 
 
+def get_documents_by_ids(file_ids: list[str]) -> dict[str, DocumentRecord]:
+    if not file_ids:
+        return {}
+    placeholders = ", ".join("?" for _ in file_ids)
+    with connect() as conn:
+        rows = conn.execute(
+            f"SELECT * FROM documents WHERE file_id IN ({placeholders})", file_ids
+        ).fetchall()
+    return {row["file_id"]: _to_record(row) for row in rows}
+
+
 def list_documents() -> list[DocumentRecord]:
     with connect() as conn:
         rows = conn.execute("SELECT * FROM documents ORDER BY created_at DESC").fetchall()
