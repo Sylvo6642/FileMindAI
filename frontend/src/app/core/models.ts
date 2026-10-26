@@ -3,6 +3,20 @@
 export type FileType = 'pdf' | 'docx' | 'txt';
 export type DocumentStatus = 'pending' | 'processing' | 'indexed' | 'failed';
 
+/** What uploading a file would send to the embedding model (POST /documents/estimate). */
+export interface UploadEstimate {
+  filename: string;
+  file_type: FileType;
+  size_bytes: number;
+  page_count: number | null;
+  chunk_count: number;
+  token_count: number;
+  estimated_cost_usd: number;
+  embedding_model: string;
+  /** Name of the library document with identical content; uploading would be rejected. */
+  duplicate_of: string | null;
+}
+
 export interface DocumentRecord {
   file_id: string;
   filename: string;

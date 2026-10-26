@@ -14,17 +14,21 @@
 <div #scroller class="flex-1 overflow-y-auto">
   @if (!chat.turns().length) {
     <div class="mx-auto flex min-h-full max-w-2xl flex-col items-center justify-center px-6 py-12 text-center">
-      <div
-        class="grid size-12 place-items-center rounded-xl bg-accent text-white"
-      >
-        <app-icon name="sparkles" [size]="22" />
-      </div>
+      <img src="logo.png" alt="" class="size-16" width="64" height="64" />
       <h2 class="mt-5 text-2xl font-semibold tracking-tight text-ink">Find any file by describing it</h2>
       <p class="mt-2 max-w-md text-sm leading-relaxed text-ink-muted">
         FileMind reads what's inside your PDFs, Word documents and text files, so you don't need to remember filenames.
       </p>
       @if (!docs.documents().length) {
-        <p class="mt-4 text-sm text-ink-faint">Start by uploading a few documents from the sidebar, or drop them anywhere here.</p>
+        <button
+          type="button"
+          class="mt-6 inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:brightness-110"
+          (click)="upload.emit()"
+        >
+          <app-icon name="upload" />
+          Upload documents
+        </button>
+        <p class="mt-2 text-xs text-ink-faint">or drop files and folders anywhere on this page</p>
       }
 
       <div class="mt-8 grid w-full gap-2 sm:grid-cols-2">

@@ -7,7 +7,13 @@ from fastapi.responses import FileResponse
 
 from app.core.config import settings
 from app.core.errors import ApiError
-from app.models.documents import ChunkOut, ChunkPreviewOut, DocumentListOut, DocumentOut
+from app.models.documents import (
+    ChunkOut,
+    ChunkPreviewOut,
+    DocumentListOut,
+    DocumentOut,
+    UploadEstimateOut,
+)
 from app.services import document_service, metadata_service
 from app.services.chunking_service import make_chunk_id
 from app.services.metadata_service import DocumentRecord
@@ -44,6 +50,14 @@ async def _read_limited(file: UploadFile) -> bytes:
             limit_mb = settings.max_upload_bytes // (1024 * 1024)
             raise ApiError(413, "file_too_large", f"File exceeds the {limit_mb} MB limit.")
     return bytes(data)
+
+
+@router.post("/estimate", response_model=UploadEstimateOut)
+async def estimate_upload(file: UploadFile) -> UploadEstimateOut:
+    """Tokens and cost of uploading this file. Nothing is saved and OpenAI is not called."""
+    data = await _read_limited(file)
+    estimate = await run_in_threadpool(document_service.estimate_upload, file.filename, data)
+    return UploadEstimateOut(**asdict(estimate), embedding_model=settings.embedding_model)
 
 
 @router.post("/upload", response_model=DocumentOut, status_code=status.HTTP_201_CREATED)

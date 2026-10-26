@@ -25,6 +25,7 @@ export class Sidebar {
   private readonly healthService = inject(HealthService);
 
   readonly newSearch = output<void>();
+  readonly upload = output<void>();
   readonly turnSelected = output<number>();
 
   protected readonly filter = signal('');
@@ -63,14 +64,6 @@ export class Sidebar {
   protected refresh(): void {
     this.checkHealth();
     void this.docs.load();
-  }
-
-  protected onFilesPicked(input: HTMLInputElement): void {
-    const files = Array.from(input.files ?? []);
-    input.value = ''; // allow picking the same file again later
-    if (files.length) {
-      void this.docs.uploadFiles(files);
-    }
   }
 
   protected toggleMenu(fileId: string, event: Event): void {

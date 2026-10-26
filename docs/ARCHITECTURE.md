@@ -106,7 +106,7 @@ missing original or partial vectors marked `failed`). Read-only report:
 
 | Layer | Where | External APIs |
 |---|---|---|
-| Backend unit + API (152 tests) | `backend/tests/` | Faked (bag-of-words embedder, scripted Claude) |
-| Frontend (31 tests) | `frontend/src/**/*.spec.ts` | Faked HTTP backend |
+| Backend unit + API (155 tests) | `backend/tests/` | Faked (bag-of-words embedder, scripted Claude) |
+| Frontend (60 tests) | `frontend/src/**/*.spec.ts` | Faked HTTP backend |
 | End-to-end, live | `backend/scripts/e2e_check.py` | Real |
 | Search quality | `backend/eval/run_eval.py` | Real |

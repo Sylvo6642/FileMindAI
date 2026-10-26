@@ -12,9 +12,7 @@ import { MatchCard } from './match-card';
   host: { class: 'block' },
   template: `
     <div class="flex gap-3">
-      <div class="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-[11px] font-semibold text-white">
-        AI
-      </div>
+      <img src="logo.png" alt="" class="size-8 shrink-0" width="32" height="32" />
 
       <div class="min-w-0 flex-1 rounded-2xl border border-line bg-panel p-4">
         <div class="flex items-baseline gap-2">

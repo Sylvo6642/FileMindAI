@@ -1,0 +1,370 @@
+<dialog
+  #dialog
+  aria-labelledby="upload-title"
+  class="modal m-auto w-[min(40rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-line bg-panel p-0 text-ink shadow-2xl shadow-black/50"
+  (close)="onClosed()"
+  (click)="onDialogClick($event)"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)"
+>
+  <div class="flex max-h-[calc(100dvh-2rem)] flex-col">
+    <header class="flex items-start gap-3 border-b border-line px-5 py-4">
+      <div class="min-w-0 flex-1">
+        <h2 id="upload-title" class="text-base font-semibold text-ink">Upload documents</h2>
+        <p class="mt-0.5 text-xs text-ink-faint">PDF, DOCX or TXT · up to 20 MB each · folders include subfolders</p>
+      </div>
+      <button
+        type="button"
+        class="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-elevated hover:text-ink"
+        aria-label="Close"
+        (click)="close()"
+      >
+        <app-icon name="x" />
+      </button>
+    </header>
+
+    <div class="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+      @if (reviewing()) {
+        <!-- Review: estimated locally for free; nothing reaches OpenAI until "Upload & embed" -->
+        <section aria-labelledby="review-title" class="space-y-3">
+          <div>
+            <h3 id="review-title" class="text-sm font-semibold text-ink">Review before uploading</h3>
+            <p class="mt-0.5 text-xs text-ink-faint">
+              Token counts are calculated on your computer. Nothing has been sent to OpenAI yet.
+            </p>
+          </div>
+
+          @if (estimating()) {
+            <div class="flex items-center gap-2 text-xs text-ink-muted" role="status">
+              <app-icon name="loader" [size]="14" class="animate-spin text-accent" />
+              Calculating {{ reviewTotals().estimated }} of {{ reviewTotals().total }}…
+            </div>
+          }
+
+          @if (reviewRows().length) {
+            <ul class="max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line">
+              @for (entry of reviewRows(); track entry.row.id) {
+                <li class="flex items-center gap-3 px-3 py-2.5">
+                  <app-file-badge [type]="entry.type" />
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-baseline gap-2">
+                      <span class="truncate text-sm text-ink" [title]="entry.row.picked.path">{{ entry.name }}</span>
+                      <span class="shrink-0 text-[11px] tabular-nums text-ink-faint">
+                        {{ formatSize(entry.row.picked.file.size) }}
+                        @if (entry.row.estimate?.page_count; as pages) {
+                          · {{ pages }} page{{ pages === 1 ? '' : 's' }}
+                        }
+                      </span>
+                    </div>
+                    @if (entry.folder) {
+                      <div class="truncate text-[11px] text-ink-faint" [title]="entry.folder">{{ entry.folder }}</div>
+                    }
+                    @if (entry.row.error) {
+                      <p class="mt-0.5 text-xs leading-snug text-rose-300">{{ entry.row.error }}</p>
+                    } @else if (entry.row.estimate?.duplicate_of; as original) {
+                      <p class="mt-0.5 text-xs leading-snug text-amber-300">Already in your library as {{ original }}</p>
+                    }
+                  </div>
+                  <div class="shrink-0 text-right text-xs tabular-nums">
+                    @if (entry.row.estimate; as estimate) {
+                      @if (estimate.duplicate_of) {
+                        <span class="text-ink-faint">Skipped</span>
+                      } @else {
+                        <div class="text-ink">{{ estimate.token_count | number }} tokens</div>
+                        <div class="text-ink-faint">{{ formatCost(estimate.estimated_cost_usd) }}</div>
+                      }
+                    } @else if (entry.row.error) {
+                      <span class="text-ink-faint">Skipped</span>
+                    } @else {
+                      <app-icon name="loader" [size]="14" class="animate-spin text-ink-faint" />
+                    }
+                  </div>
+                  <button
+                    type="button"
+                    class="grid size-7 shrink-0 place-items-center rounded-md text-ink-faint hover:bg-rose-500/10 hover:text-rose-300"
+                    [attr.aria-label]="'Remove ' + entry.name"
+                    title="Remove from this upload"
+                    (click)="removeFromReview(entry.row.id)"
+                  >
+                    <app-icon name="trash" [size]="14" />
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+
+          @if (reviewSkipped().length) {
+            <p class="flex items-start gap-2 text-xs text-ink-muted">
+              <app-icon name="alert" [size]="14" class="mt-px text-amber-300" />
+              <span>
+                <span class="font-medium">{{ reviewSkipped().length }} not uploadable</span> ·
+                {{ reviewSkippedSummary() }}
+              </span>
+            </p>
+          }
+
+          <!-- Totals and the decision -->
+          <div class="rounded-xl border border-accent/30 bg-accent/10 p-4">
+            @if (reviewTotals(); as totals) {
+              <div class="flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                <div>
+                  <div class="text-[11px] uppercase tracking-wider text-ink-faint">Files</div>
+                  <div class="text-lg font-semibold tabular-nums text-ink">{{ totals.files }}</div>
+                </div>
+                <div>
+                  <div class="text-[11px] uppercase tracking-wider text-ink-faint">Tokens</div>
+                  <div class="text-lg font-semibold tabular-nums text-ink">{{ totals.tokens | number }}</div>
+                </div>
+                <div>
+                  <div class="text-[11px] uppercase tracking-wider text-ink-faint">Estimated cost</div>
+                  <div class="text-lg font-semibold tabular-nums text-ink">{{ formatCost(totals.cost) }}</div>
+                </div>
+              </div>
+              <p class="mt-2 text-xs leading-relaxed text-ink-muted">
+                @if (estimating()) {
+                  Still calculating; the totals will grow.
+                } @else if (totals.files) {
+                  Uploading sends the text of these files to OpenAI
+                  @if (totals.model) {
+                    ({{ totals.model }})
+                  }
+                  to create embeddings. That is the only step that costs money.
+                } @else {
+                  None of these files can be uploaded.
+                }
+              </p>
+              <div class="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  class="rounded-lg border border-line px-3.5 py-2 text-sm font-medium text-ink-muted hover:bg-elevated hover:text-ink"
+                  (click)="cancelReview()"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
+                  [disabled]="estimating() || !totals.files"
+                  (click)="confirmReview()"
+                >
+                  Upload &amp; embed {{ totals.files }} file{{ totals.files === 1 ? '' : 's' }}
+                </button>
+              </div>
+            }
+          </div>
+        </section>
+      } @else {
+        <!-- Drop zone; the whole dialog accepts drops, this is where the eye goes -->
+        <div
+          class="flex flex-col items-center gap-4 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors"
+          [class]="dragOver() ? 'border-accent bg-accent/10' : 'border-line-strong'"
+        >
+          <span class="grid size-11 place-items-center rounded-full bg-accent/15 text-accent">
+            @if (scanning()) {
+              <app-icon name="loader" [size]="20" class="animate-spin" />
+            } @else {
+              <app-icon name="upload" [size]="20" />
+            }
+          </span>
+          @if (scanning()) {
+            <p class="text-sm font-medium text-ink">Reading folder…</p>
+          } @else {
+            <div>
+              <p class="text-sm font-medium text-ink">
+                {{ dragOver() ? 'Drop to upload' : 'Drag files or a folder here' }}
+              </p>
+              <p class="mt-1 text-xs text-ink-faint">or choose them from your computer</p>
+            </div>
+            <div class="flex flex-wrap justify-center gap-2">
+              <button
+                type="button"
+                class="inline-flex items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white hover:brightness-110"
+                (click)="fileInput.click()"
+              >
+                <app-icon name="file-text" />
+                Select files
+              </button>
+              <button
+                type="button"
+                class="inline-flex items-center gap-2 rounded-lg border border-line bg-elevated px-3.5 py-2 text-sm font-medium text-ink hover:bg-raised"
+                (click)="folderInput.click()"
+              >
+                <app-icon name="folder" />
+                Select folder
+              </button>
+            </div>
+          }
+          <input #fileInput type="file" multiple accept=".pdf,.docx,.txt" class="hidden" (change)="onPicked(fileInput)" />
+          <input #folderInput type="file" webkitdirectory multiple class="hidden" (change)="onPicked(folderInput)" />
+        </div>
+      }
+
+      @if (truncated()) {
+        <p class="flex items-start gap-2 text-xs text-amber-300">
+          <app-icon name="alert" [size]="14" class="mt-px" />
+          Only the first {{ maxScanned | number }} files of that folder were read. Upload subfolders separately for the rest.
+        </p>
+      }
+
+      @if (docs.uploadSummary(); as summary) {
+        @if (summary.total) {
+          <section aria-labelledby="upload-queue-title">
+            <div class="flex items-center gap-3">
+              <h3 id="upload-queue-title" class="text-xs font-semibold uppercase tracking-wider text-ink-muted">Uploads</h3>
+              <span class="text-xs tabular-nums text-ink-faint">
+                {{ summary.done }} of {{ summary.total }} done
+                @if (summary.failed) {
+                  · <span class="text-rose-300">{{ summary.failed }} failed</span>
+                }
+              </span>
+              @if (summary.done || summary.failed) {
+                <button type="button" class="ml-auto text-xs text-ink-muted hover:text-ink" (click)="docs.clearFinished()">
+                  Clear finished
+                </button>
+              }
+            </div>
+            <div
+              class="mt-2 h-1 overflow-hidden rounded-full bg-raised"
+              role="progressbar"
+              aria-label="Overall upload progress"
+              [attr.aria-valuenow]="overall() * 100 | number: '1.0-0'"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              <div class="h-full rounded-full bg-accent transition-[width] duration-300" [style.width.%]="overall() * 100"></div>
+            </div>
+
+            <ul class="mt-3 divide-y divide-line overflow-hidden rounded-xl border border-line">
+              @for (row of rows(); track row.item.id) {
+                <li class="flex items-center gap-3 px-3 py-2.5">
+                  <app-file-badge [type]="row.type" />
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-baseline gap-2">
+                      <span class="truncate text-sm text-ink" [title]="row.item.path">{{ row.name }}</span>
+                      <span class="shrink-0 text-[11px] tabular-nums text-ink-faint">{{ formatSize(row.item.size) }}</span>
+                    </div>
+                    @if (row.folder) {
+                      <div class="truncate text-[11px] text-ink-faint" [title]="row.folder">{{ row.folder }}</div>
+                    }
+                    @if (row.item.state === 'uploading') {
+                      <div class="mt-1.5 h-1 overflow-hidden rounded-full bg-raised">
+                        <div
+                          class="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
+                          [style.width.%]="row.item.progress * 100"
+                        ></div>
+                      </div>
+                    }
+                    @if (row.item.state === 'error') {
+                      <p class="mt-0.5 text-xs leading-snug text-rose-300">{{ row.item.error }}</p>
+                    } @else if (row.doc?.status === 'failed') {
+                      <p class="mt-0.5 text-xs leading-snug text-rose-300">{{ row.doc!.error_message ?? 'Indexing failed.' }}</p>
+                    }
+                  </div>
+
+                  <div class="flex shrink-0 items-center gap-1.5 text-xs">
+                    @switch (row.item.state) {
+                      @case ('queued') {
+                        <span class="text-ink-faint">Waiting</span>
+                      }
+                      @case ('uploading') {
+                        <span class="tabular-nums text-ink-muted">{{ row.item.progress * 100 | number: '1.0-0' }}%</span>
+                      }
+                      @case ('indexing') {
+                        <app-icon name="loader" [size]="14" class="animate-spin text-accent" />
+                        <span class="text-ink-muted">Indexing…</span>
+                      }
+                      @case ('error') {
+                        @if (row.item.retryable) {
+                          <button
+                            type="button"
+                            class="rounded-md border border-line px-2 py-1 font-medium text-ink-muted hover:bg-elevated hover:text-ink"
+                            (click)="docs.retryUpload(row.item.id)"
+                          >
+                            Retry
+                          </button>
+                        }
+                        <button
+                          type="button"
+                          class="grid size-6 place-items-center rounded text-ink-faint hover:bg-elevated hover:text-ink"
+                          [attr.aria-label]="'Remove ' + row.name + ' from the list'"
+                          (click)="docs.dismissUpload(row.item.id)"
+                        >
+                          <app-icon name="x" [size]="14" />
+                        </button>
+                      }
+                      @default {
+                        @switch (row.doc?.status) {
+                          @case ('failed') {
+                            <button
+                              type="button"
+                              class="rounded-md border border-line px-2 py-1 font-medium text-ink-muted hover:bg-elevated hover:text-ink"
+                              (click)="docs.reindex(row.doc!)"
+                            >
+                              Retry
+                            </button>
+                          }
+                          @case ('processing') {
+                            <app-icon name="loader" [size]="14" class="animate-spin text-accent" />
+                            <span class="text-ink-muted">Indexing…</span>
+                          }
+                          @default {
+                            <app-icon name="check" [size]="14" class="text-emerald-400" />
+                            <span class="text-ink-muted">Indexed</span>
+                          }
+                        }
+                      }
+                    }
+                  </div>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+      }
+
+      @if (docs.skipped().length) {
+        <section class="rounded-xl border border-line bg-elevated/60 px-3 py-2.5">
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 text-left text-xs text-ink-muted hover:text-ink"
+            [attr.aria-expanded]="showSkipped()"
+            (click)="showSkipped.set(!showSkipped())"
+          >
+            <app-icon name="alert" [size]="14" class="text-amber-300" />
+            <span class="min-w-0 flex-1">
+              <span class="font-medium">{{ docs.skipped().length }} skipped</span> · {{ skippedSummary() }}
+            </span>
+            <app-icon name="chevron-down" [size]="14" class="transition-transform" [class.rotate-180]="showSkipped()" />
+          </button>
+          @if (showSkipped()) {
+            <ul class="mt-2 max-h-40 space-y-1 overflow-y-auto">
+              @for (file of docs.skipped(); track $index) {
+                <li class="flex gap-3 text-xs">
+                  <span class="min-w-0 flex-1 truncate text-ink-muted" [title]="file.path">{{ file.path }}</span>
+                  <span class="shrink-0 text-ink-faint">{{ file.reason }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    </div>
+
+    <footer class="flex items-center gap-3 border-t border-line px-5 py-3">
+      <p class="min-w-0 flex-1 text-xs leading-snug text-ink-faint">
+        Document text is sent to OpenAI to create embeddings.
+        @if (docs.uploadSummary().active) {
+          Uploads continue if you close this window.
+        }
+      </p>
+      <button
+        type="button"
+        class="rounded-lg border border-line px-3.5 py-2 text-sm font-medium text-ink hover:bg-elevated"
+        (click)="close()"
+      >
+        {{ docs.uploadSummary().active ? 'Hide' : 'Done' }}
+      </button>
+    </footer>
+  </div>
+</dialog>

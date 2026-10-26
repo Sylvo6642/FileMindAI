@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 import { App } from './app';
 import { API_BASE_URL } from './core/api.config';
 import { SAMPLE_RESPONSE } from './core/chat.store.spec';
+import { DocumentsStore } from './core/documents.store';
 import { makeDoc } from './core/documents.store.spec';
 
 const settle = () => new Promise((resolve) => setTimeout(resolve));
@@ -89,5 +90,36 @@ describe('App', () => {
     const open = Array.from(el.querySelectorAll('a')).find((a) => a.textContent?.includes('Open file'))!;
     expect(open.getAttribute('href')).toBe(`${API_BASE_URL}/documents/${SAMPLE_RESPONSE.matches[0].file_id}/open`);
     expect(el.textContent).toContain('Recent searches');
+  });
+
+  it('opens the upload dialog and shows queued uploads with skipped files', async () => {
+    const { fixture, el } = await render();
+    const dialog = el.querySelector('dialog')!;
+    expect(dialog.open).toBe(false);
+
+    const button = Array.from(el.querySelectorAll('app-sidebar button')).find((b) =>
+      b.textContent?.includes('Upload documents'),
+    ) as HTMLButtonElement;
+    button.click();
+    expect(dialog.open).toBe(true);
+    expect(dialog.textContent).toContain('Select folder');
+
+    const store = TestBed.inject(DocumentsStore);
+    void store.add([
+      { file: new File(['hello'], 'lease.txt'), path: 'Contracts/lease.txt' },
+      { file: new File(['x'], 'photo.png'), path: 'Contracts/photo.png' },
+    ]);
+    await fixture.whenStable();
+
+    expect(dialog.textContent).toContain('lease.txt');
+    expect(dialog.textContent).toContain('Contracts');
+    expect(dialog.textContent).toContain('1 skipped');
+    expect(el.querySelector('app-sidebar')!.textContent).toContain('Uploading · 0 of 1 done');
+
+    http.expectOne(`${API_BASE_URL}/documents/upload`).flush(makeDoc({ file_id: 'new', filename: 'lease.txt' }));
+    await settle();
+    await fixture.whenStable();
+    expect(dialog.textContent).toContain('Indexed');
+    expect(dialog.textContent).toContain('1 of 1 done');
   });
 });

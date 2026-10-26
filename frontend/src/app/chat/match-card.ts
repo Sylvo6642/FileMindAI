@@ -57,7 +57,7 @@ import { Icon } from '../ui/icon';
 
           <div class="flex items-center gap-2">
             <a
-              class="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-sm text-ink hover:bg-raised"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-sm font-medium text-ink hover:bg-raised"
               target="_blank"
               rel="noopener"
               [href]="docs.openUrl(match().file_id)"

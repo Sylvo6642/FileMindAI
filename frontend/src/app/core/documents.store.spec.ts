@@ -1,10 +1,11 @@
-import { provideHttpClient } from '@angular/common/http';
+import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
 
 import { API_BASE_URL } from './api.config';
 import { DocumentsStore } from './documents.store';
+import { PickedFile } from './file-picker';
 import { DocumentRecord } from './models';
 
 export function makeDoc(overrides: Partial<DocumentRecord> = {}): DocumentRecord {
@@ -28,6 +29,13 @@ export function makeDoc(overrides: Partial<DocumentRecord> = {}): DocumentRecord
 
 /** Let pending promise continuations run (the store awaits HTTP calls). */
 const settle = () => new Promise((resolve) => setTimeout(resolve));
+
+const UPLOAD_URL = `${API_BASE_URL}/documents/upload`;
+
+/** Small text files at the given paths, as a file or folder picker would return them. */
+function picked(...paths: string[]): PickedFile[] {
+  return paths.map((path) => ({ file: new File(['hello'], path.split('/').pop()!), path }));
+}
 
 describe('DocumentsStore', () => {
   let store: DocumentsStore;
@@ -84,30 +92,57 @@ describe('DocumentsStore', () => {
   });
 
   it('does not list an upload twice when a refresh already picked it up', async () => {
-    const uploading = store.uploadFiles([new File(['hello'], 'notes.txt')]);
+    const uploading = store.add(picked('notes.txt'));
     store.documents.set([makeDoc({ status: 'processing' })]); // refresh mid-upload
-    http.expectOne(`${API_BASE_URL}/documents/upload`).flush(makeDoc());
+    http.expectOne(UPLOAD_URL).flush(makeDoc());
     await uploading;
 
     expect(store.documents().map((d) => d.status)).toEqual(['indexed']);
   });
 
-  it('uploads a file and adds the indexed record', async () => {
-    const uploading = store.uploadFiles([new File(['hello'], 'notes.txt')]);
+  it('uploads a file through uploading, indexing and done', async () => {
+    const uploading = store.add(picked('notes.txt'));
     expect(store.uploads()[0].state).toBe('uploading');
 
-    const request = http.expectOne(`${API_BASE_URL}/documents/upload`);
+    const request = http.expectOne(UPLOAD_URL);
     expect(request.request.body instanceof FormData).toBe(true);
+    expect(request.request.reportProgress).toBe(true);
+
+    request.event({ type: HttpEventType.UploadProgress, loaded: 40, total: 100 });
+    expect(store.uploads()[0]).toMatchObject({ state: 'uploading', progress: 0.4 });
+
+    request.event({ type: HttpEventType.UploadProgress, loaded: 100, total: 100 });
+    expect(store.uploads()[0].state).toBe('indexing'); // bytes sent, backend is embedding
+
     request.flush(makeDoc({ filename: 'notes.txt', file_type: 'txt' }));
     await uploading;
 
+    expect(store.uploads()[0]).toMatchObject({ state: 'done', fileId: makeDoc().file_id });
     expect(store.documents()[0].filename).toBe('notes.txt');
-    expect(store.uploads()).toEqual([]);
+    expect(store.uploadSummary()).toEqual({ total: 1, done: 1, failed: 0, active: 0 });
   });
 
-  it('shows the backend message when an upload is rejected', async () => {
-    const uploading = store.uploadFiles([new File(['same'], 'copy.txt')]);
-    http.expectOne(`${API_BASE_URL}/documents/upload`).flush(
+  it('sends two files at a time and starts the next when one finishes', async () => {
+    const uploading = store.add(picked('a.txt', 'b.txt', 'c.txt'));
+
+    const first = http.match(UPLOAD_URL);
+    expect(first.length).toBe(2);
+    expect(store.uploads().map((u) => u.state)).toEqual(['uploading', 'uploading', 'queued']);
+
+    first[0].flush(makeDoc({ file_id: 'a' }));
+    await settle();
+    const third = http.match(UPLOAD_URL);
+    expect(third.length).toBe(1);
+
+    first[1].flush(makeDoc({ file_id: 'b' }));
+    third[0].flush(makeDoc({ file_id: 'c' }));
+    await uploading;
+    expect(store.uploadSummary().done).toBe(3);
+  });
+
+  it('shows the backend message when an upload is rejected, without offering a retry', async () => {
+    const uploading = store.add(picked('copy.txt'));
+    http.expectOne(UPLOAD_URL).flush(
       { error: { code: 'duplicate_file', message: "This file was already uploaded as 'notes.txt'." } },
       { status: 409, statusText: 'Conflict' },
     );
@@ -116,17 +151,48 @@ describe('DocumentsStore', () => {
     expect(store.uploads()[0]).toMatchObject({
       state: 'error',
       error: "This file was already uploaded as 'notes.txt'.",
+      retryable: false,
     });
   });
 
-  it('rejects unsupported or empty files without calling the backend', async () => {
-    await store.uploadFiles([new File(['MZ'], 'virus.exe'), new File([], 'empty.txt')]);
+  it('retries an upload that failed because the backend was unreachable', async () => {
+    const uploading = store.add(picked('notes.txt'));
+    http.expectOne(UPLOAD_URL).error(new ProgressEvent('error'), { status: 0 });
+    await uploading;
+    expect(store.uploads()[0]).toMatchObject({ state: 'error', retryable: true });
 
-    expect(store.uploads().map((u) => u.error)).toEqual([
-      'Unsupported file type. Allowed: PDF, DOCX, TXT.',
-      'The file is empty.',
+    const retrying = store.retryUpload(store.uploads()[0].id);
+    http.expectOne(UPLOAD_URL).flush(makeDoc());
+    await retrying;
+    expect(store.uploads()[0].state).toBe('done');
+  });
+
+  it('skips files the backend would reject, without calling it', async () => {
+    await store.add([
+      ...picked('Contracts/virus.exe', 'Contracts/~$draft.docx'),
+      { file: new File([], 'empty.txt'), path: 'Contracts/empty.txt' },
+      { file: { name: 'huge.pdf', size: 21 * 1024 * 1024 } as File, path: 'huge.pdf' },
     ]);
-    http.expectNone(`${API_BASE_URL}/documents/upload`);
+
+    expect(store.skipped()).toEqual([
+      { path: 'Contracts/virus.exe', reason: 'Unsupported file type' },
+      { path: 'Contracts/~$draft.docx', reason: 'Temporary Office file' },
+      { path: 'Contracts/empty.txt', reason: 'Empty file' },
+      { path: 'huge.pdf', reason: 'Larger than 20 MB' },
+    ]);
+    expect(store.uploads()).toEqual([]);
+    http.expectNone(UPLOAD_URL);
+  });
+
+  it('keeps folder paths and clears finished uploads', async () => {
+    const uploading = store.add(picked('Contracts/2024/lease.txt', 'misc.exe'));
+    http.expectOne(UPLOAD_URL).flush(makeDoc());
+    await uploading;
+    expect(store.uploads()[0].path).toBe('Contracts/2024/lease.txt');
+
+    store.clearFinished();
+    expect(store.uploads()).toEqual([]);
+    expect(store.skipped()).toEqual([]);
   });
 
   it('deletes a document', async () => {

@@ -25,6 +25,7 @@
               }
             ],
             "styles": [
+              "@fontsource-variable/dm-sans/opsz.css",
               "src/styles.css"
             ]
           },

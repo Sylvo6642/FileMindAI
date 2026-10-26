@@ -4,19 +4,18 @@ import { ChatView } from './chat/chat-view';
 import { ChatStore } from './core/chat.store';
 import { DocumentsStore } from './core/documents.store';
 import { Sidebar } from './layout/sidebar';
-import { Icon } from './ui/icon';
+import { UploadDialog } from './upload/upload-dialog';
 
 const DESKTOP_QUERY = '(min-width: 768px)';
 
 @Component({
-  imports: [Sidebar, ChatView, Icon],
+  imports: [Sidebar, ChatView, UploadDialog],
   selector: 'app-root',
   templateUrl: './app.html',
   host: {
     class: 'block h-full',
     '(dragenter)': 'onDragEnter($event)',
     '(dragover)': '$event.preventDefault()',
-    '(dragleave)': 'onDragLeave($event)',
     '(drop)': 'onDrop($event)',
   },
 })
@@ -24,10 +23,10 @@ export class App {
   private readonly docs = inject(DocumentsStore);
   private readonly chat = inject(ChatStore);
   private readonly chatView = viewChild(ChatView);
+  private readonly uploadDialog = viewChild.required(UploadDialog);
 
   protected readonly isDesktop = signal(matchMedia(DESKTOP_QUERY).matches);
   protected readonly sidebarOpen = signal(this.isDesktop());
-  protected readonly dragging = signal(false);
 
   constructor() {
     void this.docs.load();
@@ -54,26 +53,23 @@ export class App {
     }
   }
 
+  protected openUpload(): void {
+    this.closeSidebarOnMobile();
+    this.uploadDialog().open();
+  }
+
+  // Dragging files over the window opens the upload dialog, which then takes the drop.
   protected onDragEnter(event: DragEvent): void {
     if (event.dataTransfer?.types.includes('Files')) {
       event.preventDefault();
-      this.dragging.set(true);
-    }
-  }
-
-  protected onDragLeave(event: DragEvent): void {
-    // Only hide the overlay when the pointer leaves the window, not a child element.
-    if (!event.relatedTarget) {
-      this.dragging.set(false);
+      this.uploadDialog().open();
     }
   }
 
   protected onDrop(event: DragEvent): void {
     event.preventDefault();
-    this.dragging.set(false);
-    const files = Array.from(event.dataTransfer?.files ?? []);
-    if (files.length) {
-      void this.docs.uploadFiles(files);
+    if (event.dataTransfer?.types.includes('Files')) {
+      this.uploadDialog().dropFiles(event.dataTransfer);
     }
   }
 }

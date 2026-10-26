@@ -51,6 +51,11 @@ class Settings:
         default_factory=lambda: int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
     )
     embedding_batch_size: int = 100
+    # USD per 1M input tokens, only used to show an upload estimate. text-embedding-3-small
+    # was $0.02 on 2026-10-26; set EMBEDDING_PRICE_PER_MILLION if you change model or price.
+    embedding_price_per_million: float = field(
+        default_factory=lambda: float(os.getenv("EMBEDDING_PRICE_PER_MILLION", "0.02"))
+    )
 
     # Measured on the sample set: relevant top hits scored 0.38-0.59 distance,
     # weaker candidates up to ~0.76, nonsense queries 0.89+. Re-checked in

@@ -13,6 +13,7 @@ import hashlib
 import logging
 import sqlite3
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 
 from app.core.config import settings
@@ -31,6 +32,45 @@ MEDIA_TYPES = {
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "txt": "text/plain; charset=utf-8",
 }
+
+
+@dataclass
+class UploadEstimate:
+    filename: str
+    file_type: str
+    size_bytes: int
+    page_count: int | None
+    chunk_count: int
+    token_count: int
+    estimated_cost_usd: float
+    duplicate_of: str | None
+
+
+def estimate_upload(raw_filename: str | None, data: bytes) -> UploadEstimate:
+    """What uploading this file would cost, without saving it or calling OpenAI.
+
+    Runs the same validation, extraction and chunking as an upload, so the token
+    count is exactly what would be sent to the embedding model.
+    """
+    filename = sanitize_filename(raw_filename)
+    file_type = validate_upload(filename, data)
+    existing = metadata_service.get_document_by_hash(hashlib.sha256(data).hexdigest())
+    try:
+        extraction = extract(data, file_type)
+    except ExtractionError as exc:
+        raise ApiError(422, "extraction_failed", str(exc))
+    chunks = chunk_segments(extraction.segments)
+    tokens = sum(chunk.token_count for chunk in chunks)
+    return UploadEstimate(
+        filename=filename,
+        file_type=file_type,
+        size_bytes=len(data),
+        page_count=extraction.page_count,
+        chunk_count=len(chunks),
+        token_count=tokens,
+        estimated_cost_usd=tokens / 1_000_000 * settings.embedding_price_per_million,
+        duplicate_of=existing.filename if existing else None,
+    )
 
 
 def ingest_upload(raw_filename: str | None, data: bytes) -> DocumentRecord:

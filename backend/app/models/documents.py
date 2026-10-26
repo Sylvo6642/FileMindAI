@@ -21,6 +21,19 @@ class DocumentOut(BaseModel):
     updated_at: str
 
 
+class UploadEstimateOut(BaseModel):
+    filename: str
+    file_type: str
+    size_bytes: int
+    page_count: int | None
+    chunk_count: int
+    token_count: int
+    estimated_cost_usd: float
+    embedding_model: str
+    # Set when the same content is already in the library; uploading it would be rejected.
+    duplicate_of: str | None
+
+
 class DocumentListOut(BaseModel):
     count: int
     documents: list[DocumentOut]

@@ -19,9 +19,11 @@ Claude Haiku (`claude-haiku-5-5`) · PyMuPDF · python-docx · tiktoken
 
 ## How it works
 
-1. **Upload:** the file is validated, its text extracted with page/paragraph/line
-   locations, split into ~600-token chunks, and each chunk turned into a 1536-number
-   vector stored in ChromaDB.
+1. **Upload:** pick files or a whole folder. FileMind first shows how many tokens each
+   file would send to OpenAI and the estimated cost (counted locally, free), and uploads
+   only after you confirm. Each file is then validated, its text extracted with
+   page/paragraph/line locations, split into ~600-token chunks, and each chunk turned
+   into a 1536-number vector stored in ChromaDB.
 2. **Search:** Claude reads your question and calls a `search_files` tool. The
    backend combines vector search (meaning) with keyword search (exact words and
    amounts), groups the results by file and returns excerpts.
@@ -86,6 +88,7 @@ API docs (Swagger): http://127.0.0.1:8000/docs
 |---|---|---|
 | `OPENAI_API_KEY` | (empty) | Required for uploads and search |
 | `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` | `text-embedding-3-small` / `1536` | Changing them starts a new, empty vector collection: reindex your documents |
+| `EMBEDDING_PRICE_PER_MILLION` | `0.02` | USD per 1M tokens, only used for the cost shown before uploading |
 | `SEARCH_MODE` | `hybrid` | `vector` = embeddings only |
 | `ANTHROPIC_API_KEY` | (empty) | Required for the assistant |
 | `ANTHROPIC_MODEL` | `claude-haiku-5-5` | |
@@ -97,6 +100,7 @@ API docs (Swagger): http://127.0.0.1:8000/docs
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Status and whether API keys are configured |
+| POST | `/api/documents/estimate` | Tokens and cost of uploading a file; saves nothing, no OpenAI call |
 | POST | `/api/documents/upload` | Upload one file (multipart `file`) |
 | GET | `/api/documents` | List documents |
 | GET | `/api/documents/{file_id}` | One document's metadata |
@@ -115,8 +119,8 @@ Errors always look like `{"error": {"code": "...", "message": "..."}}`.
 
 | What | Command | Real APIs? |
 |---|---|---|
-| Backend tests (152) | `cd backend; .\.venv\Scripts\python.exe -m pytest` | No |
-| Frontend tests (31) | `cd frontend; npx ng test --watch=false` | No |
+| Backend tests (155) | `cd backend; .\.venv\Scripts\python.exe -m pytest` | No |
+| Frontend tests (60) | `cd frontend; npx ng test --watch=false` | No |
 | End-to-end check (backend running) | `cd backend; .\.venv\Scripts\python.exe scripts\e2e_check.py` | **Yes**, a few cents |
 | Search quality evaluation | `cd backend; .\.venv\Scripts\python.exe eval\run_eval.py [--agent]` | **Yes**. See [eval/README](backend/eval/README.md) |
 

@@ -23,6 +23,7 @@ export class ChatView {
   protected readonly docs = inject(DocumentsStore);
 
   readonly toggleSidebar = output<void>();
+  readonly upload = output<void>();
 
   protected readonly examples = EXAMPLES;
   protected readonly draft = signal('');

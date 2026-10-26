@@ -1,8 +1,9 @@
+import pytest
 import httpx
 import openai
 
 from app.core.config import settings
-from app.services import metadata_service, vector_service
+from app.services import document_service, metadata_service, vector_service
 from tests.sample_files import make_docx, make_image_only_pdf, make_pdf
 
 TXT = "text/plain"
@@ -194,3 +195,42 @@ def test_delete_removes_file_vectors_and_metadata(client):
     assert client.delete(f"/api/documents/{file_id}").status_code == 404
     # The same content can be uploaded again once deleted.
     assert _upload(client, "notes.txt", b"to be deleted").status_code == 201
+
+
+def _estimate(client, name: str, data: bytes, content_type: str = TXT):
+    return client.post("/api/documents/estimate", files={"file": (name, data, content_type)})
+
+
+def test_estimate_counts_tokens_without_saving_or_calling_openai(client, fake_openai):
+    text = "Annual support fees for the website maintenance contract. " * 400
+    response = _estimate(client, "fees.txt", text.encode())
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    preview = document_service.chunk_segments(
+        document_service.extract(text.encode(), "txt").segments
+    )
+    assert body["chunk_count"] == len(preview) > 1
+    assert body["token_count"] == sum(c.token_count for c in preview)
+    assert body["estimated_cost_usd"] == pytest.approx(body["token_count"] / 1_000_000 * 0.02)
+    assert body["embedding_model"] == settings.embedding_model
+    assert body["duplicate_of"] is None
+    # Nothing happened: no embedding call, no stored file, no library entry.
+    assert fake_openai.embeddings.calls == []
+    assert _uploaded_files() == []
+    assert metadata_service.list_documents() == []
+
+
+def test_estimate_flags_content_already_in_the_library(client):
+    _upload(client, "original.txt", b"same content")
+
+    body = _estimate(client, "renamed copy.txt", b"same content").json()
+
+    assert body["duplicate_of"] == "original.txt"
+
+
+def test_estimate_rejects_what_an_upload_would_reject(client):
+    assert _estimate(client, "virus.exe", b"MZ").status_code == 415
+    scanned = _estimate(client, "scan.pdf", make_image_only_pdf(), PDF)
+    assert scanned.status_code == 422
+    assert scanned.json()["error"]["code"] == "extraction_failed"
