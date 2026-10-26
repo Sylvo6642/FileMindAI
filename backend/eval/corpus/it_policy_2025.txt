@@ -1,0 +1,9 @@
+Information Security Policy (2025)
+
+Passwords must be at least 14 characters and must not be reused across systems. Multi-factor authentication is mandatory for email, VPN and the finance system.
+
+Laptops must use full-disk encryption and lock automatically after five minutes of inactivity.
+
+Report suspected phishing emails to the security team using the "Report phishing" button. Never share one-time passcodes with anyone, including IT staff.
+
+Access to customer data is granted on a need-to-know basis and reviewed every quarter.

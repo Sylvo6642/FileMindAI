@@ -1,0 +1,12 @@
+TAX INVOICE  No. 7781
+
+From: Sigma ERP Solutions
+To: Kappa Manufacturing Ltd
+
+Description                                     Amount
+Annual software support renewal (ERP licence)   INR 75,000
+On-site training, 2 days                        INR 30,000
+GST 18%                                         INR 18,900
+Total due                                       INR 1,23,900
+
+Support period: 1 April 2025 to 31 March 2026. Payment due within 15 days of invoice date by bank transfer.

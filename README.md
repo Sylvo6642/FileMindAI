@@ -1,57 +1,186 @@
 # FileMind AI
 
-A localhost-only assistant that finds files by describing their contents, not their filenames.
+A localhost-only assistant that finds files by describing their contents, not their
+filenames. Upload PDFs, Word documents and text files, then ask things like
+*"the contract about website maintenance"* or *"which file mentions a payment of 50000
+rupees?"*.
 
-Built with FastAPI, Angular, ChromaDB, OpenAI embeddings and Claude Haiku tool calling.
+Built as a learning project for AI engineering: embeddings, vector databases, hybrid
+search, retrieval-augmented generation (RAG), tool calling and agent loops, with no
+agent frameworks hiding the mechanics.
 
-> Work in progress. Full documentation arrives in Stage 8.
+**Stack:** Angular 22 · FastAPI · ChromaDB · SQLite · OpenAI `text-embedding-3-small` ·
+Claude Haiku (`claude-haiku-5-5`) · PyMuPDF · python-docx · tiktoken
 
-## Requirements (Windows)
+> **Privacy:** FileMind runs on your machine, but it is not offline. The text of every
+> uploaded document is sent to **OpenAI** to create embeddings, and excerpts of
+> matching documents are sent to **Anthropic** when you search. Don't upload
+> documents you are not allowed to share with these providers.
 
-- Python 3.11 (`py -3.11 --version`)
-- Node.js 24.15+ and npm
+## How it works
 
-## Backend
+1. **Upload:** the file is validated, its text extracted with page/paragraph/line
+   locations, split into ~600-token chunks, and each chunk turned into a 1536-number
+   vector stored in ChromaDB.
+2. **Search:** Claude reads your question and calls a `search_files` tool. The
+   backend combines vector search (meaning) with keyword search (exact words and
+   amounts), groups the results by file and returns excerpts.
+3. **Answer:** Claude explains which file matches and why. The backend checks that
+   every file Claude names was really returned by a tool before showing it.
+
+Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Measured quality:
+[backend/eval/README.md](backend/eval/README.md) (Recall@5 100% on a 35-query test
+set with deliberate look-alike documents).
+
+## Requirements (Windows 10/11)
+
+- **Python 3.11**: check with `py -3.11 --version`
+- **Node.js 24.15+** and npm: check with `node --version`
+- An **OpenAI API key** and an **Anthropic API key**
+
+No Docker, WSL or database server is needed.
+
+## Setup
+
+### Backend
 
 ```powershell
-cd backend
+cd D:\filemind-ai\backend
 py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 copy .env.example .env
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+notepad .env        # paste OPENAI_API_KEY and ANTHROPIC_API_KEY
 ```
 
-Add `--reload-include .env` to also restart the server when you edit `.env`.
-
-If `Activate.ps1` is blocked by execution policy, skip activation and call the venv's
-Python directly: `.\.venv\Scripts\python.exe -m uvicorn ...`
-
-> **Privacy:** uploaded document text is sent to OpenAI to generate embeddings, and
-> excerpts of matching documents are sent to Anthropic (Claude) when you search.
-
-## Frontend
+### Frontend
 
 ```powershell
-cd frontend
+cd D:\filemind-ai\frontend
 npm install
+```
+
+## Run
+
+Use two PowerShell windows.
+
+```powershell
+# Window 1: backend on http://127.0.0.1:8000
+cd D:\filemind-ai\backend
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --reload-include .env --host 127.0.0.1 --port 8000
+```
+
+```powershell
+# Window 2: frontend on http://localhost:4200
+cd D:\filemind-ai\frontend
 npm start
 ```
 
-Open http://localhost:4200.
+Open **http://localhost:4200**. The sidebar footer should say *Backend connected*.
+Try the files in `backend/samples/` (their names are deliberately unhelpful).
+
+API docs (Swagger): http://127.0.0.1:8000/docs
+
+## Configuration (`backend/.env`)
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `OPENAI_API_KEY` | (empty) | Required for uploads and search |
+| `EMBEDDING_MODEL` / `EMBEDDING_DIMENSIONS` | `text-embedding-3-small` / `1536` | Changing them starts a new, empty vector collection: reindex your documents |
+| `SEARCH_MODE` | `hybrid` | `vector` = embeddings only |
+| `ANTHROPIC_API_KEY` | (empty) | Required for the assistant |
+| `ANTHROPIC_MODEL` | `claude-haiku-5-5` | |
+| `AGENT_EFFORT` | `medium` | `low` / `medium` / `high`: how much Claude thinks |
+| `CORS_ORIGINS` | `http://localhost:4200,http://127.0.0.1:4200` | Browser origins allowed to call the API |
+
+## API
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/health` | Status and whether API keys are configured |
+| POST | `/api/documents/upload` | Upload one file (multipart `file`) |
+| GET | `/api/documents` | List documents |
+| GET | `/api/documents/{file_id}` | One document's metadata |
+| GET | `/api/documents/{file_id}/open` | The original file |
+| POST | `/api/documents/{file_id}/reindex` | Retry indexing a failed document |
+| DELETE | `/api/documents/{file_id}` | Delete file, vectors and metadata |
+| POST | `/api/search` | Ask the assistant (Claude + tools) |
+| POST | `/api/search/semantic` | Retrieval only, no Claude |
+| GET | `/api/documents/{file_id}/chunks` | *Learning:* how a file was chunked |
+| POST | `/api/debug/nearest-chunks` | *Learning:* raw nearest chunks with distances |
+| GET | `/api/debug/consistency` | *Learning:* do SQLite, files and vectors agree? |
+
+Errors always look like `{"error": {"code": "...", "message": "..."}}`.
 
 ## Testing
 
-| What | Command (from the folder shown) | Uses real APIs? |
+| What | Command | Real APIs? |
 |---|---|---|
-| Backend unit/API tests | `backend> python -m pytest` | No (fake OpenAI and Claude) |
-| Frontend tests | `frontend> npx ng test --watch=false` | No (fake HTTP backend) |
-| End-to-end check | `backend> python scripts/e2e_check.py` | **Yes**: costs a few cents |
+| Backend tests (152) | `cd backend; .\.venv\Scripts\python.exe -m pytest` | No |
+| Frontend tests (31) | `cd frontend; npx ng test --watch=false` | No |
+| End-to-end check (backend running) | `cd backend; .\.venv\Scripts\python.exe scripts\e2e_check.py` | **Yes**, a few cents |
+| Search quality evaluation | `cd backend; .\.venv\Scripts\python.exe eval\run_eval.py [--agent]` | **Yes**. See [eval/README](backend/eval/README.md) |
 
-The end-to-end check needs the backend running. It uploads two temporary documents
-(including one with a prompt-injection attempt), runs real searches, verifies the
-answers, then deletes them again.
+The end-to-end check uploads two temporary documents (one containing a
+prompt-injection attempt), runs real searches, verifies the answers and deletes them.
 
-Data consistency: SQLite, `data/uploads/` and ChromaDB are reconciled automatically at
-startup. To inspect them without changing anything, open
+## Where data is stored
+
+Everything lives in `backend\data\` (excluded from Git):
+
+| Path | Contents |
+|---|---|
+| `filemind.db` | SQLite: one row per document (name, type, hash, status, counts) |
+| `chroma\` | ChromaDB: chunk text, vectors and locations |
+| `uploads\` | Your original files, stored as `{file_id}.{ext}` |
+
+To start over, stop the backend and delete `backend\data\`. Don't edit these files
+while the backend runs. SQLite, `uploads\` and ChromaDB are reconciled at every
+startup; to inspect them without changing anything, open
 http://127.0.0.1:8000/api/debug/consistency.
+
+## Windows troubleshooting
+
+| Problem | Fix |
+|---|---|
+| `Activate.ps1 cannot be loaded because running scripts is disabled` | You don't need activation: call `.\.venv\Scripts\python.exe` directly, as above. (Changing the execution policy is optional and system-wide; FileMind doesn't require it.) |
+| `py -3.11` not found | Install Python 3.11 from python.org; the `py` launcher picks the version |
+| Port 8000 or 4200 already in use | `Get-NetTCPConnection -LocalPort 8000` shows the owning process; stop it, or use `--port 8001` and update `API_BASE_URL` in `frontend/src/app/core/api.config.ts` |
+| Footer says *Backend offline* | Start the backend (window 1). The page rechecks when you switch back to the tab |
+| *API key missing* in the footer | Fill `backend\.env`; with `--reload-include .env` the server restarts automatically |
+| Delete fails with *file is open in another program* | Windows locks open files: close it in Word/Acrobat and delete again |
+| Scanned PDF rejected | Image-only PDFs have no text layer; OCR is not supported |
+| Upload shows *Could not reach OpenAI* | Check the key, network and credits, then use **Retry** on the failed document |
+| Servers stop when the PC is low on memory | Close other apps, then start them again |
+
+## Project structure
+
+```
+filemind-ai/
+├── backend/
+│   ├── app/
+│   │   ├── api/          FastAPI routes
+│   │   ├── core/         settings, SQLite, error format
+│   │   ├── models/       request/response schemas
+│   │   ├── services/     validation, extraction, chunking, embeddings, vectors,
+│   │   │                 keyword search, search, agent, consistency
+│   │   └── tools/        Claude tools: search_files, inspect_file
+│   ├── eval/             evaluation corpus, dataset and runner
+│   ├── samples/          sample documents (python scripts\make_samples.py)
+│   ├── scripts/          sample generator, end-to-end check
+│   └── tests/            pytest suite with fake OpenAI/Claude
+├── frontend/src/app/
+│   ├── core/             API config, stores (documents, chat), models
+│   ├── layout/           sidebar
+│   ├── chat/             conversation, assistant message, match cards
+│   └── ui/               icons, file badges
+└── docs/ARCHITECTURE.md
+```
+
+## Limitations
+
+- No OCR: scanned PDFs are rejected.
+- Single user, localhost only, no authentication by design.
+- The keyword index is rebuilt in memory when documents change. That is fine for
+  thousands of chunks; a much larger library would want a persistent full-text index.
+- Search quality was measured on a small, self-made dataset; see the caveats in the
+  evaluation report.

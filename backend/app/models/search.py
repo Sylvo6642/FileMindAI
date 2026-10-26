@@ -22,6 +22,8 @@ class FileMatchOut(BaseModel):
     file_type: str
     # 1 - cosine distance. A ranking signal, not a confidence percentage.
     similarity: float
+    # "semantic", "keyword" or "both": which ranking found the file.
+    matched_by: str
     matching_chunks: int
     excerpts: list[ExcerptOut]
 

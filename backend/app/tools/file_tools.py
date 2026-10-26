@@ -36,10 +36,13 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "search_files",
         "description": (
-            "Semantic search over the contents of the user's indexed documents (PDF, DOCX, TXT). "
-            "Finds files by meaning, not filename. Returns candidate files ranked by similarity, "
-            "each with file_id, filename, file_type, a similarity score (a relative ranking signal, "
-            "not a confidence percentage) and short excerpts with their page/paragraph/line location. "
+            "Search over the contents of the user's indexed documents (PDF, DOCX, TXT). "
+            "Finds files by meaning and by exact keywords or amounts, not by filename. Returns "
+            "candidate files, best first, each with file_id, filename, file_type, a similarity score "
+            "(a relative ranking signal, not a confidence percentage), matched_by (\"semantic\", "
+            "\"keyword\" or \"both\"; keyword-only files share exact words or numbers with the query "
+            "even when their overall topic differs) and short excerpts with their page/paragraph/line "
+            "location. "
             "Write the query as a description of the content you expect (topic, parties, amounts), "
             "not as a filename. Use limit 5 unless the user asks for more or fewer results."
         ),
@@ -195,6 +198,7 @@ def _search_files(args: SearchFilesArgs, context: ToolContext) -> ToolOutcome:
                 "filename": match.filename,
                 "file_type": match.file_type,
                 "similarity": match.similarity,
+                "matched_by": match.matched_by,
                 "matching_chunks": match.matching_chunks,
                 "excerpts": excerpts,
             }

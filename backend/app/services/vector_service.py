@@ -5,6 +5,7 @@ embedding_function=None, so Chroma refuses any text that arrives without one
 and its built-in default model is never used.
 """
 
+import math
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
@@ -28,6 +29,19 @@ class ChunkHit:
     # Cosine distance: 0 = same direction (very similar), 1 = unrelated.
     distance: float
     metadata: dict[str, Any]
+
+
+# Bumped on every write so in-memory caches (the keyword index) know to rebuild.
+_generation = 0
+
+
+def generation() -> int:
+    return _generation
+
+
+def _changed() -> None:
+    global _generation
+    _generation += 1
 
 
 @lru_cache(maxsize=4)
@@ -91,10 +105,12 @@ def upsert_chunks(
             documents=[c.text for c in part],
             metadatas=[_chunk_metadata(file_id, filename, file_type, c) for c in part],
         )
+    _changed()
 
 
 def delete_file_vectors(file_id: str) -> None:
     _collection().delete(where={"file_id": file_id})
+    _changed()
 
 
 def count_file_vectors(file_id: str) -> int:
@@ -122,6 +138,45 @@ def get_file_chunks(file_id: str) -> list[tuple[int, str, dict[str, Any]]]:
         for text, metadata in zip(result["documents"], result["metadatas"])
     ]
     return sorted(chunks, key=lambda chunk: chunk[0])
+
+
+def all_chunk_texts() -> list[tuple[str, str, str]]:
+    """Every stored chunk as (chunk_id, file_id, text), for the keyword index."""
+    result = _collection().get(include=["documents", "metadatas"])
+    return [
+        (chunk_id, str(metadata["file_id"]), text or "")
+        for chunk_id, text, metadata in zip(result["ids"], result["documents"], result["metadatas"])
+    ]
+
+
+def get_chunks(chunk_ids: list[str], query_embedding: list[float]) -> list[ChunkHit]:
+    """Fetch specific chunks and compute their cosine distance to the query.
+
+    Used for chunks found by keyword search, which have no distance yet.
+    """
+    if not chunk_ids:
+        return []
+    result = _collection().get(ids=chunk_ids, include=["documents", "metadatas", "embeddings"])
+    query_norm = math.sqrt(sum(v * v for v in query_embedding)) or 1.0
+    hits = []
+    for chunk_id, text, metadata, embedding in zip(
+        result["ids"], result["documents"], result["metadatas"], result["embeddings"]
+    ):
+        vector = [float(v) for v in embedding]
+        norm = math.sqrt(sum(v * v for v in vector)) or 1.0
+        cosine = sum(a * b for a, b in zip(query_embedding, vector)) / (query_norm * norm)
+        hits.append(
+            ChunkHit(
+                chunk_id=chunk_id,
+                file_id=str(metadata["file_id"]),
+                filename=str(metadata["filename"]),
+                chunk_index=int(metadata["chunk_index"]),
+                text=text or "",
+                distance=1.0 - cosine,
+                metadata=dict(metadata),
+            )
+        )
+    return hits
 
 
 def query_chunks(

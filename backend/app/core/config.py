@@ -53,8 +53,14 @@ class Settings:
     embedding_batch_size: int = 100
 
     # Measured on the sample set: relevant top hits scored 0.38-0.59 distance,
-    # weaker candidates up to ~0.76, nonsense queries 0.89+. Re-check in Stage 8.
+    # weaker candidates up to ~0.76, nonsense queries 0.89+. Re-checked in
+    # Stage 8 on 16 documents: no-match queries still scored 0.63+ distance, so
+    # the cutoff only removes nonsense; deciding "no match" is Claude's job.
     search_max_distance: float = 0.85
+    # "hybrid" = vector + keyword (BM25) merged with Reciprocal Rank Fusion;
+    # "vector" = embeddings only. See eval/README.md for the measurements.
+    search_mode: str = field(default_factory=lambda: os.getenv("SEARCH_MODE", "hybrid"))
+    search_rrf_k: int = 60
     search_excerpts_per_file: int = 3
     search_excerpt_chars: int = 400
 

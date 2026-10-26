@@ -1,0 +1,9 @@
+Reading notes - evaluating machine learning models
+
+Precision measures how many predicted positives are correct; recall measures how many actual positives were found. For imbalanced data, accuracy alone is misleading.
+
+Cross-validation: split the data into k folds, train on k-1 and test on the remaining fold, repeat and average.
+
+Overfitting shows up as a gap between training and validation scores. Remedies: more data, regularisation, simpler models, early stopping.
+
+To read next: calibration curves, and how to evaluate ranking systems with recall at k and mean reciprocal rank.

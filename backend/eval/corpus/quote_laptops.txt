@@ -1,0 +1,11 @@
+QUOTATION
+
+Supplier: Nova Computers, Andheri East, Mumbai
+For: Purchase department
+
+Item: business laptop, 14-inch, 16 GB RAM, 512 GB SSD, three-year on-site warranty
+Quantity: 6
+Unit price: INR 68,500
+Total: INR 4,11,000 plus GST
+
+Delivery within ten working days of purchase order. Quotation valid for 30 days.

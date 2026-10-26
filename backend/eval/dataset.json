@@ -1,0 +1,53 @@
+{
+  "description": "FileMind search evaluation. Each query lists the file(s) that count as a correct answer; a query is a hit if any of them is returned. no_match queries have no correct file and the right behaviour is to say so.",
+  "categories": {
+    "exact": "The query uses wording that appears in the document.",
+    "paraphrase": "The query describes the document in different words.",
+    "detail": "The answer is one detail buried inside a longer document.",
+    "numeric": "The query hinges on an amount or number.",
+    "multi": "More than one file is a reasonable answer.",
+    "no_match": "No document in the corpus matches."
+  },
+  "queries": [
+    {"id": "q01", "category": "exact", "query": "software development agreement", "expected": ["agreement_001.pdf"]},
+    {"id": "q02", "category": "exact", "query": "employment contract", "expected": ["contract_045.pdf"]},
+    {"id": "q03", "category": "exact", "query": "website maintenance and support contract", "expected": ["document_final.docx"]},
+    {"id": "q04", "category": "exact", "query": "AI customer support assistant proposal", "expected": ["draft_v2.docx"]},
+    {"id": "q05", "category": "exact", "query": "mutual non-disclosure agreement", "expected": ["nda_final.txt"]},
+    {"id": "q06", "category": "exact", "query": "employee travel and expense policy", "expected": ["policy_travel.txt"]},
+
+    {"id": "q07", "category": "paraphrase", "query": "contract for building an inventory app for a client", "expected": ["agreement_001.pdf"]},
+    {"id": "q08", "category": "paraphrase", "query": "paper about hiring a store manager, with salary and leave", "expected": ["contract_045.pdf"]},
+    {"id": "q09", "category": "paraphrase", "query": "agreement to keep our hotel booking site running", "expected": ["document_final.docx"]},
+    {"id": "q10", "category": "paraphrase", "query": "plan to automate replies to insurance customer emails", "expected": ["draft_v2.docx"]},
+    {"id": "q11", "category": "paraphrase", "query": "the job offer for the backend engineer", "expected": ["offer_letter_v3.txt"]},
+    {"id": "q12", "category": "paraphrase", "query": "hiring a freelancer to work on our marketing strategy", "expected": ["contract_088.txt"]},
+    {"id": "q13", "category": "paraphrase", "query": "board decision on redesigning the company website", "expected": ["minutes_q3.txt"]},
+    {"id": "q14", "category": "paraphrase", "query": "how much can I spend on a hotel during a business trip", "expected": ["policy_travel.txt"]},
+    {"id": "q15", "category": "paraphrase", "query": "rules about passwords and two-factor login", "expected": ["it_policy_2025.txt"]},
+    {"id": "q16", "category": "paraphrase", "query": "how to make pickle at home", "expected": ["misc_0007.txt"]},
+    {"id": "q17", "category": "paraphrase", "query": "notes on how to measure whether a model is accurate", "expected": ["research_notes.txt"]},
+
+    {"id": "q18", "category": "detail", "query": "contract with a Schedule A listing functional requirements", "expected": ["agreement_001.pdf"]},
+    {"id": "q19", "category": "detail", "query": "barcode scanning requirement for the Android app", "expected": ["agreement_001.pdf"]},
+    {"id": "q20", "category": "detail", "query": "intellectual property transfers to the client after full payment", "expected": ["agreement_001.pdf"]},
+    {"id": "q21", "category": "detail", "query": "sixty days notice period", "expected": ["contract_045.pdf"]},
+    {"id": "q22", "category": "detail", "query": "critical incidents get a response within two hours", "expected": ["document_final.docx"]},
+    {"id": "q23", "category": "detail", "query": "team moving to the 4th floor", "expected": ["notes.txt"]},
+    {"id": "q24", "category": "detail", "query": "mandatory first-aid training", "expected": ["notes.txt"]},
+
+    {"id": "q25", "category": "numeric", "query": "payment of 50000 rupees", "expected": ["notes.txt"]},
+    {"id": "q26", "category": "numeric", "query": "receipt for 25,000 rupees rent", "expected": ["receipt_scan.txt"]},
+    {"id": "q27", "category": "numeric", "query": "table of annual support fees", "expected": ["document_final.docx"]},
+    {"id": "q28", "category": "numeric", "query": "project budget of 32 lakh rupees", "expected": ["draft_v2.docx"]},
+    {"id": "q29", "category": "numeric", "query": "invoice with a total of 1,23,900", "expected": ["invoice_7781.txt"]},
+    {"id": "q30", "category": "numeric", "query": "price quote for six laptops", "expected": ["quote_laptops.txt", "notes.txt"]},
+
+    {"id": "q31", "category": "multi", "query": "documents with confidentiality obligations", "expected": ["nda_final.txt", "agreement_001.pdf"]},
+    {"id": "q32", "category": "multi", "query": "anything about notice periods for leaving a job", "expected": ["contract_045.pdf", "offer_letter_v3.txt"]},
+
+    {"id": "q33", "category": "no_match", "query": "car insurance policy", "expected": []},
+    {"id": "q34", "category": "no_match", "query": "flight booking confirmation to Singapore", "expected": []},
+    {"id": "q35", "category": "no_match", "query": "medical prescription for blood pressure", "expected": []}
+  ]
+}
