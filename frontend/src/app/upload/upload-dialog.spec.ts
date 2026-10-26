@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { API_BASE_URL } from '../core/api.config';
 import { makeDoc } from '../core/documents.store.spec';
+import { KeysStore } from '../core/keys.store';
 import { UploadEstimate } from '../core/models';
 import { UploadDialog, formatCost } from './upload-dialog';
 
@@ -131,6 +132,27 @@ describe('UploadDialog review step', () => {
 
     expect(el.textContent).toContain('Drag files or a folder here');
     http.expectNone(UPLOAD_URL);
+  });
+
+  it('estimates without an OpenAI key but only uploads once one is added', async () => {
+    const keys = TestBed.inject(KeysStore);
+    keys.status.set({ openai: { configured: false, hint: null }, anthropic: { configured: true, hint: 'sk-…B' } });
+    let asked = 0;
+    fixture.componentInstance.addKey.subscribe(() => asked++);
+
+    fixture.componentInstance.dropFiles(dropOf('lease.pdf'));
+    await render();
+    http.expectOne(ESTIMATE_URL).flush(estimate()); // counting tokens is local: no key needed
+    await render();
+
+    expect(el.textContent).toContain('Add your OpenAI API key to upload these files.');
+    expect(confirmButton().disabled).toBe(true);
+    (Array.from(el.querySelectorAll('button')).find((b) => b.textContent?.trim() === 'Add key') as HTMLButtonElement).click();
+    expect(asked).toBe(1);
+
+    keys.status.set({ openai: { configured: true, hint: 'sk-…A' }, anthropic: { configured: true, hint: 'sk-…B' } });
+    await render();
+    expect(confirmButton().disabled).toBe(false);
   });
 
   it('cancelling the review uploads nothing', async () => {

@@ -2,6 +2,7 @@ import { Component, ElementRef, computed, effect, inject, output, signal, viewCh
 
 import { ChatStore } from '../core/chat.store';
 import { DocumentsStore } from '../core/documents.store';
+import { KeysStore } from '../core/keys.store';
 import { Icon } from '../ui/icon';
 import { AssistantMessage } from './assistant-message';
 
@@ -21,20 +22,26 @@ const EXAMPLES = [
 export class ChatView {
   protected readonly chat = inject(ChatStore);
   protected readonly docs = inject(DocumentsStore);
+  protected readonly keys = inject(KeysStore);
 
   readonly toggleSidebar = output<void>();
   readonly upload = output<void>();
 
   protected readonly examples = EXAMPLES;
   protected readonly draft = signal('');
+  /** Searching needs an indexed document and both API keys. */
+  protected readonly canSearch = computed(() => this.docs.canSearch() && this.keys.searchReady());
   protected readonly canSend = computed(
-    () => this.draft().trim().length > 0 && !this.chat.busy() && this.docs.canSearch(),
+    () => this.draft().trim().length > 0 && !this.chat.busy() && this.canSearch(),
   );
-  protected readonly placeholder = computed(() =>
-    this.docs.canSearch()
+  protected readonly placeholder = computed(() => {
+    if (!this.keys.searchReady()) {
+      return 'Add your API keys to start searching';
+    }
+    return this.docs.canSearch()
       ? 'Describe the file you’re looking for…'
-      : 'Upload a document to start searching',
-  );
+      : 'Upload a document to start searching';
+  });
   protected readonly title = computed(() => this.chat.turns()[0]?.query ?? 'New search');
 
   private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
@@ -66,7 +73,7 @@ export class ChatView {
   }
 
   protected send(text = this.draft()): void {
-    if (!text.trim() || this.chat.busy() || !this.docs.canSearch()) {
+    if (!text.trim() || this.chat.busy() || !this.canSearch()) {
       return;
     }
     this.chat.ask(text);

@@ -3,6 +3,7 @@ import { Component, computed, inject, output, signal } from '@angular/core';
 import { ChatStore } from '../core/chat.store';
 import { DocumentsStore } from '../core/documents.store';
 import { HealthResponse, HealthService } from '../core/health.service';
+import { KeysStore } from '../core/keys.store';
 import { DocumentRecord } from '../core/models';
 import { FileBadge } from '../ui/file-badge';
 import { Icon } from '../ui/icon';
@@ -22,10 +23,12 @@ import { Icon } from '../ui/icon';
 export class Sidebar {
   protected readonly docs = inject(DocumentsStore);
   protected readonly chat = inject(ChatStore);
+  private readonly keys = inject(KeysStore);
   private readonly healthService = inject(HealthService);
 
   readonly newSearch = output<void>();
   readonly upload = output<void>();
+  readonly apiKeys = output<void>();
   readonly turnSelected = output<number>();
 
   protected readonly filter = signal('');
@@ -40,6 +43,14 @@ export class Sidebar {
     const term = this.filter().trim().toLowerCase();
     const docs = this.docs.documents();
     return term ? docs.filter((d) => d.filename.toLowerCase().includes(term)) : docs;
+  });
+
+  protected readonly missingKeys = computed(() => {
+    const names = this.keys.missing().map((p) => (p === 'openai' ? 'OpenAI' : 'Anthropic'));
+    if (!names.length) {
+      return null;
+    }
+    return names.length === 1 ? `${names[0]} API key missing` : `${names.join(' and ')} API keys missing`;
   });
 
   protected readonly totalChunks = computed(() =>
@@ -64,6 +75,7 @@ export class Sidebar {
   protected refresh(): void {
     this.checkHealth();
     void this.docs.load();
+    void this.keys.load();
   }
 
   protected toggleMenu(fileId: string, event: Event): void {

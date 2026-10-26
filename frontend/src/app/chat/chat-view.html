@@ -36,7 +36,7 @@
           <button
             type="button"
             class="rounded-xl border border-line bg-panel px-4 py-3 text-left text-sm text-ink-muted hover:border-line-strong hover:text-ink disabled:opacity-50"
-            [disabled]="chat.busy() || !docs.canSearch()"
+            [disabled]="chat.busy() || !canSearch()"
             (click)="send(example)"
           >
             {{ example }}

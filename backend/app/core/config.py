@@ -12,8 +12,9 @@ from dotenv import load_dotenv
 
 # backend/app/core/config.py -> parents[2] is backend/
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+ENV_FILE = BACKEND_DIR / ".env"
 
-load_dotenv(BACKEND_DIR / ".env")
+load_dotenv(ENV_FILE)
 
 
 def _split_csv(value: str) -> list[str]:
@@ -38,6 +39,8 @@ class Settings:
     )
 
     data_dir: Path = BACKEND_DIR / "data"
+    # Where keys entered in the app are saved (git-ignored).
+    env_file: Path = ENV_FILE
 
     max_upload_bytes: int = 20 * 1024 * 1024
     chunk_size_tokens: int = 600

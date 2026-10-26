@@ -1,0 +1,131 @@
+<dialog
+  #dialog
+  aria-labelledby="keys-title"
+  class="modal m-auto w-[min(34rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-line bg-panel p-0 text-ink shadow-2xl shadow-black/50"
+  (close)="onClosed()"
+  (click)="onDialogClick($event)"
+>
+  <div class="flex max-h-[calc(100dvh-2rem)] flex-col">
+    <header class="flex items-start gap-3 border-b border-line px-5 py-4">
+      <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-accent/15 text-accent">
+        <app-icon name="key" [size]="18" />
+      </span>
+      <div class="min-w-0 flex-1">
+        <h2 id="keys-title" class="text-base font-semibold text-ink">
+          {{ anyMissing() ? 'Add your API keys' : 'API keys' }}
+        </h2>
+        <p class="mt-0.5 text-xs leading-relaxed text-ink-faint">
+          @if (anyMissing()) {
+            FileMind uses OpenAI and Anthropic.
+            {{ keys.missing().length === 1 ? 'One key is' : 'Some keys are' }} not set yet.
+          } @else {
+            Both keys are set. Paste a new one to replace it.
+          }
+        </p>
+      </div>
+      <button
+        type="button"
+        class="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-elevated hover:text-ink"
+        aria-label="Close"
+        (click)="close()"
+      >
+        <app-icon name="x" />
+      </button>
+    </header>
+
+    <div class="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+      @for (provider of providers; track provider) {
+        @let meta = info[provider];
+        @let current = keys.status()?.[provider];
+        @let s = state()[provider];
+        <section class="rounded-xl border border-line bg-elevated/50 p-4" [attr.aria-labelledby]="'key-' + provider">
+          <div class="flex items-center gap-2">
+            <h3 [id]="'key-' + provider" class="text-sm font-semibold text-ink">{{ meta.name }}</h3>
+            @if (current?.configured) {
+              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
+                <app-icon name="check" [size]="12" />
+                Set · <span class="font-mono">{{ current!.hint }}</span>
+              </span>
+            } @else if (current) {
+              <span class="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-300">Not set</span>
+            }
+            <a
+              class="ml-auto inline-flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
+              target="_blank"
+              rel="noopener"
+              [href]="meta.keysUrl"
+            >
+              Get a key
+              <app-icon name="external-link" [size]="12" />
+            </a>
+          </div>
+          <p class="mt-1 text-xs leading-relaxed text-ink-muted">{{ meta.purpose }}</p>
+
+          <form class="mt-3 flex gap-2" (submit)="save(provider, $event)">
+            <label class="relative min-w-0 flex-1">
+              <span class="sr-only">{{ meta.name }} API key</span>
+              <input
+                class="w-full rounded-lg border border-line bg-canvas py-2 pl-3 pr-9 font-mono text-sm text-ink placeholder:font-sans placeholder:text-ink-faint focus:border-line-strong focus:outline-none"
+                [type]="s.reveal ? 'text' : 'password'"
+                [placeholder]="current?.configured ? 'Paste a new key to replace it' : meta.placeholder"
+                autocomplete="off"
+                spellcheck="false"
+                data-1p-ignore
+                data-lpignore="true"
+                [value]="s.draft"
+                [attr.aria-invalid]="!!s.error"
+                (input)="setDraft(provider, $any($event.target).value)"
+              />
+              <button
+                type="button"
+                class="absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded-md text-ink-faint hover:text-ink"
+                [attr.aria-label]="s.reveal ? 'Hide key' : 'Show key'"
+                (click)="toggleReveal(provider)"
+              >
+                <app-icon [name]="s.reveal ? 'eye-off' : 'eye'" [size]="14" />
+              </button>
+            </label>
+            <button
+              type="submit"
+              class="inline-flex shrink-0 items-center gap-2 rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
+              [disabled]="!s.draft.trim() || s.saving"
+            >
+              @if (s.saving) {
+                <app-icon name="loader" [size]="14" class="animate-spin" />
+                Checking…
+              } @else {
+                {{ current?.configured ? 'Replace' : 'Save' }}
+              }
+            </button>
+          </form>
+
+          @if (s.error) {
+            <p class="mt-2 flex items-start gap-1.5 text-xs leading-snug text-rose-300" role="alert">
+              <app-icon name="alert" [size]="14" class="mt-px" />
+              {{ s.error }}
+            </p>
+          } @else if (s.saved) {
+            <p class="mt-2 flex items-center gap-1.5 text-xs text-emerald-300" role="status">
+              <app-icon name="check" [size]="14" />
+              Key checked with {{ meta.name }} and saved.
+            </p>
+          }
+        </section>
+      }
+    </div>
+
+    <footer class="flex items-center gap-3 border-t border-line px-5 py-3">
+      <p class="min-w-0 flex-1 text-xs leading-snug text-ink-faint">
+        Keys are checked with the provider (free) and saved in <span class="font-mono">backend/.env</span> on this
+        computer. They are never stored in the browser or committed to Git.
+      </p>
+      <button
+        type="button"
+        class="shrink-0 rounded-lg border border-line px-3.5 py-2 text-sm font-medium text-ink hover:bg-elevated"
+        (click)="close()"
+      >
+        {{ anyMissing() ? 'Later' : 'Done' }}
+      </button>
+    </footer>
+  </div>
+</dialog>

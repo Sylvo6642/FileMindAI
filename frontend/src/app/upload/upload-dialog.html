@@ -124,6 +124,11 @@
               <p class="mt-2 text-xs leading-relaxed text-ink-muted">
                 @if (estimating()) {
                   Still calculating; the totals will grow.
+                } @else if (totals.files && !keys.openaiReady()) {
+                  <span class="text-amber-300">Add your OpenAI API key to upload these files.</span>
+                  <button type="button" class="ml-1 font-medium text-ink underline hover:no-underline" (click)="addKey.emit()">
+                    Add key
+                  </button>
                 } @else if (totals.files) {
                   Uploading sends the text of these files to OpenAI
                   @if (totals.model) {
@@ -145,7 +150,7 @@
                 <button
                   type="button"
                   class="rounded-lg bg-accent px-3.5 py-2 text-sm font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100"
-                  [disabled]="estimating() || !totals.files"
+                  [disabled]="estimating() || !totals.files || !keys.openaiReady()"
                   (click)="confirmReview()"
                 >
                   Upload &amp; embed {{ totals.files }} file{{ totals.files === 1 ? '' : 's' }}

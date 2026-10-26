@@ -1,9 +1,10 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, inject, output, signal, viewChild } from '@angular/core';
 
 import { describeHttpError } from '../core/api-error';
 import { DocumentsStore, SkippedFile, screenFiles } from '../core/documents.store';
 import { MAX_SCANNED_FILES, PickedFile, filesFromDrop, filesFromInput } from '../core/file-picker';
+import { KeysStore } from '../core/keys.store';
 import { FileType, UploadEstimate } from '../core/models';
 import { FileBadge } from '../ui/file-badge';
 import { Icon } from '../ui/icon';
@@ -60,7 +61,11 @@ function uploadable(row: ReviewRow): boolean {
 })
 export class UploadDialog {
   protected readonly docs = inject(DocumentsStore);
+  protected readonly keys = inject(KeysStore);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+
+  /** Estimating works without a key (it's local); embedding needs the OpenAI key. */
+  readonly addKey = output<void>();
 
   protected readonly dragOver = signal(false);
   protected readonly scanning = signal(false);

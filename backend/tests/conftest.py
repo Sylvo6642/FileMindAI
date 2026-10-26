@@ -17,6 +17,13 @@ def isolated_data_dir(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def isolated_env_file(tmp_path, monkeypatch):
+    """Keys saved during tests go to a throwaway .env, never backend/.env."""
+    monkeypatch.setattr(settings, "env_file", tmp_path / ".env")
+    return settings.env_file
+
+
+@pytest.fixture(autouse=True)
 def fake_openai(monkeypatch) -> FakeOpenAI:
     """Tests never call the real OpenAI API."""
     fake = FakeOpenAI()

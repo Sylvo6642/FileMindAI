@@ -34,10 +34,16 @@ describe('App', () => {
     makeDoc({ file_id: 'b2', filename: 'notes.txt', file_type: 'txt', status: 'failed', error_message: 'No key' }),
   ];
 
-  async function render(documents = LIBRARY) {
+  const BOTH_KEYS = {
+    openai: { configured: true, hint: 'sk-…AAAA' },
+    anthropic: { configured: true, hint: 'sk-…BBBB' },
+  };
+
+  async function render(documents = LIBRARY, keys: object = BOTH_KEYS) {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable(); // first render: the sidebar asks for /health
     http.expectOne(`${API_BASE_URL}/documents`).flush({ count: documents.length, documents });
+    http.expectOne(`${API_BASE_URL}/settings/keys`).flush(keys);
     http.expectOne(`${API_BASE_URL}/health`).flush({
       status: 'ok', app: 'FileMind AI', version: '0.1.0', openai_configured: true, anthropic_configured: true,
     });
@@ -45,6 +51,26 @@ describe('App', () => {
     await fixture.whenStable();
     return { fixture, el: fixture.nativeElement as HTMLElement };
   }
+
+  it('asks for missing API keys on startup and blocks searching until they are added', async () => {
+    const { fixture, el } = await render(LIBRARY, {
+      openai: { configured: false, hint: null },
+      anthropic: { configured: true, hint: 'sk-…BBBB' },
+    });
+    // Opening the dialog refreshes the key status.
+    http.expectOne(`${API_BASE_URL}/settings/keys`).flush({
+      openai: { configured: false, hint: null },
+      anthropic: { configured: true, hint: 'sk-…BBBB' },
+    });
+    await settle();
+    await fixture.whenStable();
+
+    const keysDialog = el.querySelector('app-api-keys-dialog dialog') as HTMLDialogElement;
+    expect(keysDialog.open).toBe(true);
+    expect(keysDialog.textContent).toContain('Add your API keys');
+    expect(el.querySelector('app-sidebar')!.textContent).toContain('OpenAI API key missing');
+    expect(el.querySelector('textarea')!.placeholder).toBe('Add your API keys to start searching');
+  });
 
   it('shows the library and the empty search state', async () => {
     const { el } = await render();

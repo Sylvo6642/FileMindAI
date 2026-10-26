@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import debug, documents, health, search
+from app.api import debug, documents, health, search, settings as settings_api
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.errors import register_error_handlers
@@ -43,7 +43,7 @@ app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifesp
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Content-Type"],
 )
 
@@ -53,3 +53,4 @@ app.include_router(health.router)
 app.include_router(documents.router)
 app.include_router(search.router)
 app.include_router(debug.router)
+app.include_router(settings_api.router)

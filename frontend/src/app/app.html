@@ -15,6 +15,7 @@
       [class.left-0]="!isDesktop()"
       (newSearch)="newSearch()"
       (upload)="openUpload()"
+      (apiKeys)="openKeys()"
       (turnSelected)="showTurn($event)"
     />
   }
@@ -22,4 +23,5 @@
   <app-chat-view (toggleSidebar)="sidebarOpen.set(!sidebarOpen())" (upload)="openUpload()" />
 </div>
 
-<app-upload-dialog />
+<app-upload-dialog (addKey)="openKeys()" />
+<app-api-keys-dialog />

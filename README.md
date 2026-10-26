@@ -50,9 +50,10 @@ No Docker, WSL or database server is needed.
 cd D:\filemind-ai\backend
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-copy .env.example .env
-notepad .env        # paste OPENAI_API_KEY and ANTHROPIC_API_KEY
 ```
+
+API keys: the app asks for them on first start (see **Run**). You can also set them
+by hand with `copy .env.example .env` and `notepad .env`.
 
 ### Frontend
 
@@ -78,6 +79,15 @@ npm start
 ```
 
 Open **http://localhost:4200**. The sidebar footer should say *Backend connected*.
+
+If a key is missing, an **Add your API keys** dialog opens. Paste your
+[OpenAI](https://platform.openai.com/api-keys) and
+[Anthropic](https://console.anthropic.com/settings/keys) keys. Each key is checked with
+its provider for free (a model list request, no tokens) and saved in `backend/.env`;
+the browser only ever sees a masked hint like `sk-…a1B2`. You can choose **Later**
+and add them from **API keys** in the sidebar footer; until then uploading and
+searching stay disabled.
+
 Try the files in `backend/samples/` (their names are deliberately unhelpful).
 
 API docs (Swagger): http://127.0.0.1:8000/docs
@@ -100,6 +110,8 @@ API docs (Swagger): http://127.0.0.1:8000/docs
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/health` | Status and whether API keys are configured |
+| GET | `/api/settings/keys` | Which keys are set, with masked hints only |
+| PUT | `/api/settings/keys/{openai\|anthropic}` | Check a key with its provider (free) and save it to `.env` |
 | POST | `/api/documents/estimate` | Tokens and cost of uploading a file; saves nothing, no OpenAI call |
 | POST | `/api/documents/upload` | Upload one file (multipart `file`) |
 | GET | `/api/documents` | List documents |
@@ -119,8 +131,8 @@ Errors always look like `{"error": {"code": "...", "message": "..."}}`.
 
 | What | Command | Real APIs? |
 |---|---|---|
-| Backend tests (155) | `cd backend; .\.venv\Scripts\python.exe -m pytest` | No |
-| Frontend tests (60) | `cd frontend; npx ng test --watch=false` | No |
+| Backend tests (167) | `cd backend; .\.venv\Scripts\python.exe -m pytest` | No |
+| Frontend tests (66) | `cd frontend; npx ng test --watch=false` | No |
 | End-to-end check (backend running) | `cd backend; .\.venv\Scripts\python.exe scripts\e2e_check.py` | **Yes**, a few cents |
 | Search quality evaluation | `cd backend; .\.venv\Scripts\python.exe eval\run_eval.py [--agent]` | **Yes**. See [eval/README](backend/eval/README.md) |
 

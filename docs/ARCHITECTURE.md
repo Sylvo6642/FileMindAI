@@ -78,7 +78,7 @@ question ──▶ Claude Haiku (agent loop, max 5 tool rounds)
 
 | Threat | Defence |
 |---|---|
-| API key leaks | Keys only in `backend/.env`; the browser talks to the backend only |
+| API key leaks | Keys live only in `backend/.env`. A key typed in the app goes once to the local backend, which checks it with its provider and saves it; responses only ever carry a masked hint. Writing keys is refused for other browser origins, and malformed values (spaces, newlines) are rejected so `.env` cannot be injected |
 | Malicious upload | Extension allowlist, content checks, size limit, DOCX zip-bomb check, sanitised names, UUID storage paths |
 | Path traversal | `stored_path()` builds paths from a validated UUID and checks they stay inside `uploads/` |
 | Prompt injection inside a document | Document text is labelled untrusted in tool results; system prompt says to ignore instructions in documents; **file_ids are verified in code**, so a document cannot make Claude cite a file it never retrieved |
@@ -106,7 +106,7 @@ missing original or partial vectors marked `failed`). Read-only report:
 
 | Layer | Where | External APIs |
 |---|---|---|
-| Backend unit + API (155 tests) | `backend/tests/` | Faked (bag-of-words embedder, scripted Claude) |
-| Frontend (60 tests) | `frontend/src/**/*.spec.ts` | Faked HTTP backend |
+| Backend unit + API (167 tests) | `backend/tests/` | Faked (bag-of-words embedder, scripted Claude) |
+| Frontend (66 tests) | `frontend/src/**/*.spec.ts` | Faked HTTP backend |
 | End-to-end, live | `backend/scripts/e2e_check.py` | Real |
 | Search quality | `backend/eval/run_eval.py` | Real |

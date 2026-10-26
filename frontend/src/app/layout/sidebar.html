@@ -226,13 +226,27 @@
       <div class="flex items-center gap-2 text-ink-muted">
         <span class="size-2 rounded-full bg-emerald-400"></span>
         Backend connected
+        <button
+          type="button"
+          class="-my-1 ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-ink-faint hover:bg-elevated hover:text-ink"
+          (click)="apiKeys.emit()"
+        >
+          <app-icon name="key" [size]="12" />
+          API keys
+        </button>
       </div>
-      <div class="mt-1 text-ink-faint">
-        {{ docs.indexedCount() }} indexed · {{ totalChunks() }} chunks
-        @if (health() && (!health()!.openai_configured || !health()!.anthropic_configured)) {
-          <span class="text-amber-300"> · API key missing</span>
-        }
-      </div>
+      <div class="mt-1 text-ink-faint">{{ docs.indexedCount() }} indexed · {{ totalChunks() }} chunks</div>
+      @if (missingKeys(); as missing) {
+        <button
+          type="button"
+          class="mt-2 flex w-full items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-left text-amber-200 hover:bg-amber-500/15"
+          (click)="apiKeys.emit()"
+        >
+          <app-icon name="key" [size]="14" />
+          <span class="min-w-0 flex-1">{{ missing }}</span>
+          <span class="font-medium">Add</span>
+        </button>
+      }
     }
     @case ('offline') {
       <div class="flex items-center gap-2 text-rose-300">
