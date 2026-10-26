@@ -56,15 +56,22 @@ import { Icon } from '../ui/icon';
           }
 
           <div class="flex items-center gap-2">
-            <a
-              class="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-sm font-medium text-ink hover:bg-raised"
-              target="_blank"
-              rel="noopener"
-              [href]="docs.openUrl(match().file_id)"
-            >
-              <app-icon name="external-link" [size]="14" />
-              Open file
-            </a>
+            @if (removed()) {
+              <span class="inline-flex items-center gap-1.5 px-1 py-1.5 text-sm text-ink-faint">
+                <app-icon name="alert" [size]="14" />
+                No longer in your library
+              </span>
+            } @else {
+              <a
+                class="inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel px-3 py-1.5 text-sm font-medium text-ink hover:bg-raised"
+                target="_blank"
+                rel="noopener"
+                [href]="docs.openUrl(match().file_id)"
+              >
+                <app-icon name="external-link" [size]="14" />
+                Open file
+              </a>
+            }
             @if (match().excerpts.length) {
               <button
                 type="button"
@@ -96,6 +103,10 @@ export class MatchCard {
 
   protected readonly visibleExcerpts = computed(() =>
     this.showAll() ? this.match().excerpts : this.match().excerpts.slice(0, 1),
+  );
+  /** A saved answer can point at a file deleted since. */
+  protected readonly removed = computed(
+    () => this.docs.loaded() && !this.docs.documents().some((d) => d.file_id === this.match().file_id),
   );
   protected readonly hiddenCount = computed(
     () => this.match().excerpts.length - this.visibleExcerpts().length,

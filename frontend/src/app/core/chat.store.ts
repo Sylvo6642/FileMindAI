@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { API_BASE_URL } from './api.config';
 import { describeHttpError } from './api-error';
+import { HistoryStore } from './history.store';
 import { AgentSearchResponse } from './models';
 
 export interface ChatTurn {
@@ -13,12 +14,15 @@ export interface ChatTurn {
   status: 'loading' | 'done' | 'error';
   response?: AgentSearchResponse;
   error?: string;
+  /** Opened from history: the stored answer, not a fresh search. */
+  saved?: boolean;
 }
 
 /** The search thread. Each question is an independent agent run on the backend. */
 @Injectable({ providedIn: 'root' })
 export class ChatStore {
   private readonly http = inject(HttpClient);
+  private readonly history = inject(HistoryStore);
   private nextId = 1;
 
   readonly turns = signal<ChatTurn[]>([]);
@@ -43,6 +47,37 @@ export class ChatStore {
     void this.run(id, turn.query);
   }
 
+  /**
+   * Show a saved search. If it is already in the thread, returns that turn;
+   * otherwise the thread is replaced by the stored answer (no Claude call).
+   * Returns the turn id to scroll to, or null if it could not be shown.
+   */
+  async open(searchId: string): Promise<number | null> {
+    const existing = this.turns().find((t) => t.response?.search_id === searchId);
+    if (existing) {
+      return existing.id;
+    }
+    if (this.busy()) {
+      return null;
+    }
+    try {
+      const response = await this.history.get(searchId);
+      const turn: ChatTurn = {
+        id: this.nextId++,
+        query: response.query,
+        askedAt: new Date(response.created_at ?? Date.now()),
+        status: 'done',
+        response,
+        saved: true,
+      };
+      this.turns.set([turn]);
+      return turn.id;
+    } catch {
+      await this.history.load(); // deleted elsewhere: drop it from the list
+      return null;
+    }
+  }
+
   clear(): void {
     if (!this.busy()) {
       this.turns.set([]);
@@ -55,6 +90,7 @@ export class ChatStore {
         this.http.post<AgentSearchResponse>(`${API_BASE_URL}/search`, { query }),
       );
       this.patch(id, { status: 'done', response });
+      this.history.record(response);
     } catch (error) {
       this.patch(id, { status: 'error', error: describeHttpError(error) });
     }

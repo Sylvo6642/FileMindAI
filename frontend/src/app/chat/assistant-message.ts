@@ -17,7 +17,26 @@ import { MatchCard } from './match-card';
       <div class="min-w-0 flex-1 rounded-2xl border border-line bg-panel p-4">
         <div class="flex items-baseline gap-2">
           <span class="text-sm font-semibold text-ink">FileMind</span>
-          <span class="text-xs text-ink-faint">{{ turn().askedAt | date: 'shortTime' }}</span>
+          @if (turn().saved) {
+            <span class="text-xs text-ink-faint">{{ turn().askedAt | date: 'd MMM, HH:mm' }}</span>
+            <span
+              class="rounded-md border border-line px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-ink-faint"
+              title="Shown from your search history. No new Claude call was made."
+            >
+              Saved
+            </span>
+            <button
+              type="button"
+              class="ml-auto inline-flex items-center gap-1 self-center rounded-md px-1.5 py-0.5 text-xs text-ink-muted hover:bg-elevated hover:text-ink disabled:opacity-50"
+              [disabled]="!canRunAgain()"
+              (click)="runAgain.emit(turn().query)"
+            >
+              <app-icon name="refresh" [size]="12" />
+              Run again
+            </button>
+          } @else {
+            <span class="text-xs text-ink-faint">{{ turn().askedAt | date: 'shortTime' }}</span>
+          }
         </div>
 
         @switch (turn().status) {
@@ -94,7 +113,10 @@ import { MatchCard } from './match-card';
 })
 export class AssistantMessage {
   readonly turn = input.required<ChatTurn>();
+  /** Saved answers can be outdated (files added or removed since): search again on demand. */
+  readonly canRunAgain = input(true);
   readonly retry = output<number>();
+  readonly runAgain = output<string>();
 
   protected readonly matchesOpen = signal(true);
 

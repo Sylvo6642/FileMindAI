@@ -183,37 +183,61 @@
     }
   </section>
 
-  <!-- Recent searches -->
-  @if (chat.turns().length) {
+  <!-- Recent searches (saved in the backend; reopening one costs nothing) -->
+  @if (history.searches().length) {
     <section>
-      <button
-        type="button"
-        class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-ink-muted hover:bg-elevated"
-        [attr.aria-expanded]="searchesOpen()"
-        (click)="searchesOpen.set(!searchesOpen())"
-      >
-        <span class="grid h-5 min-w-5 place-items-center rounded bg-raised px-1 text-[10px] font-medium text-ink-muted">
-          {{ chat.turns().length }}
-        </span>
-        Recent searches
-        <app-icon name="chevron-down" class="ml-auto transition-transform" [class.-rotate-90]="!searchesOpen()" />
-      </button>
+      <div class="flex items-center gap-1">
+        <button
+          type="button"
+          class="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-ink-muted hover:bg-elevated"
+          [attr.aria-expanded]="searchesOpen()"
+          (click)="searchesOpen.set(!searchesOpen())"
+        >
+          <span class="grid h-5 min-w-5 place-items-center rounded bg-raised px-1 text-[10px] font-medium text-ink-muted">
+            {{ history.totals().searches }}
+          </span>
+          Recent searches
+          <app-icon name="chevron-down" class="ml-auto transition-transform" [class.-rotate-90]="!searchesOpen()" />
+        </button>
+        @if (searchesOpen()) {
+          <button
+            type="button"
+            class="shrink-0 rounded-lg px-2 py-1.5 text-xs"
+            [class]="confirmClear() ? 'bg-rose-500/10 text-rose-300 hover:bg-rose-500/15' : 'text-ink-faint hover:bg-elevated hover:text-ink'"
+            (click)="clearHistory()"
+          >
+            {{ confirmClear() ? 'Clear all?' : 'Clear' }}
+          </button>
+        }
+      </div>
       @if (searchesOpen()) {
         <ul class="mt-1 space-y-0.5">
-          @for (turn of chat.turns(); track turn.id) {
-            <li>
+          @for (search of history.searches(); track search.search_id) {
+            <li class="group relative">
               <button
                 type="button"
-                class="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink-muted hover:bg-elevated hover:text-ink"
-                [title]="turn.query"
-                (click)="turnSelected.emit(turn.id)"
+                class="flex w-full items-center gap-2 rounded-lg py-1.5 pl-2 pr-8 text-left text-sm text-ink-muted hover:bg-elevated hover:text-ink"
+                [title]="search.query"
+                (click)="searchSelected.emit(search.search_id)"
               >
                 <app-icon name="message" [size]="14" class="text-ink-faint" />
-                <span class="truncate">{{ turn.query }}</span>
+                <span class="min-w-0 flex-1 truncate">{{ search.query }}</span>
+              </button>
+              <button
+                type="button"
+                class="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-ink-faint opacity-0 hover:bg-raised hover:text-rose-300 focus:opacity-100 group-hover:opacity-100"
+                [attr.aria-label]="'Delete search: ' + search.query"
+                (click)="history.remove(search.search_id)"
+              >
+                <app-icon name="x" [size]="14" />
               </button>
             </li>
           }
         </ul>
+        <p class="px-2 pt-1.5 text-[11px] text-ink-faint">
+          {{ history.totals().usage.input_tokens + history.totals().usage.output_tokens | number }} Claude tokens over
+          {{ history.totals().searches }} search{{ history.totals().searches === 1 ? '' : 'es' }}
+        </p>
       }
     </section>
   }

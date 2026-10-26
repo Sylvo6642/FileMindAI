@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { API_BASE_URL } from './api.config';
 import { ChatStore } from './chat.store';
+import { HistoryStore } from './history.store';
 import { AgentSearchResponse } from './models';
 
 export const SAMPLE_RESPONSE: AgentSearchResponse = {
@@ -30,6 +31,8 @@ export const SAMPLE_RESPONSE: AgentSearchResponse = {
   tool_rounds: 1,
   model: 'claude-haiku-5-5',
   usage: { input_tokens: 4833, output_tokens: 582 },
+  search_id: '5e1f0c3a-0000-4000-8000-000000000001',
+  created_at: '2026-10-20T09:30:00+00:00',
 };
 
 const settle = () => new Promise((resolve) => setTimeout(resolve));
@@ -91,5 +94,51 @@ describe('ChatStore', () => {
     http.expectOne(`${API_BASE_URL}/search`).error(new ProgressEvent('error'), { status: 0 });
     await settle();
     expect(store.turns()[0].error).toContain('Cannot reach the FileMind backend');
+  });
+
+  it('adds a finished search to the history list', async () => {
+    const history = TestBed.inject(HistoryStore);
+    store.ask('Find the software development agreement');
+    http.expectOne(`${API_BASE_URL}/search`).flush(SAMPLE_RESPONSE);
+    await settle();
+
+    expect(history.searches().map((s) => s.search_id)).toEqual([SAMPLE_RESPONSE.search_id]);
+    expect(history.totals()).toEqual({ searches: 1, usage: { input_tokens: 4833, output_tokens: 582 } });
+  });
+
+  it('does not list a search the backend did not save', async () => {
+    const history = TestBed.inject(HistoryStore);
+    store.ask('find it');
+    http.expectOne(`${API_BASE_URL}/search`).flush({ ...SAMPLE_RESPONSE, search_id: null, created_at: null });
+    await settle();
+    expect(history.searches()).toEqual([]);
+  });
+
+  it('opens a saved search without running it again', async () => {
+    const opening = store.open(SAMPLE_RESPONSE.search_id!);
+    http.expectOne(`${API_BASE_URL}/searches/${SAMPLE_RESPONSE.search_id}`).flush(SAMPLE_RESPONSE);
+    const id = await opening;
+
+    http.expectNone(`${API_BASE_URL}/search`);
+    const [turn] = store.turns();
+    expect(turn).toMatchObject({ id, status: 'done', saved: true, query: SAMPLE_RESPONSE.query });
+    expect(turn.askedAt.toISOString()).toBe('2026-10-20T09:30:00.000Z');
+
+    // Already in the thread: no second request.
+    expect(await store.open(SAMPLE_RESPONSE.search_id!)).toBe(id);
+  });
+
+  it('refreshes the history list when a saved search has gone', async () => {
+    const opening = store.open('missing');
+    http.expectOne(`${API_BASE_URL}/searches/missing`).flush(
+      { error: { code: 'search_not_found', message: 'Search not found.' } },
+      { status: 404, statusText: 'Not Found' },
+    );
+    await settle();
+    http.expectOne(`${API_BASE_URL}/searches?limit=50`).flush({
+      count: 0, searches: [], total_searches: 0, total_usage: { input_tokens: 0, output_tokens: 0 },
+    });
+    expect(await opening).toBeNull();
+    expect(store.turns()).toEqual([]);
   });
 });

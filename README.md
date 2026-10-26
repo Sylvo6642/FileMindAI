@@ -121,6 +121,10 @@ API docs (Swagger): http://127.0.0.1:8000/docs
 | DELETE | `/api/documents/{file_id}` | Delete file, vectors and metadata |
 | POST | `/api/search` | Ask the assistant (Claude + tools) |
 | POST | `/api/search/semantic` | Retrieval only, no Claude |
+| GET | `/api/searches` | Saved searches, newest first, with total Claude token usage |
+| GET | `/api/searches/{search_id}` | One saved answer, exactly as it was shown (no new Claude call) |
+| DELETE | `/api/searches/{search_id}` | Forget one saved search |
+| DELETE | `/api/searches` | Clear the search history |
 | GET | `/api/documents/{file_id}/chunks` | *Learning:* how a file was chunked |
 | POST | `/api/debug/nearest-chunks` | *Learning:* raw nearest chunks with distances |
 | GET | `/api/debug/consistency` | *Learning:* do SQLite, files and vectors agree? |
@@ -131,8 +135,8 @@ Errors always look like `{"error": {"code": "...", "message": "..."}}`.
 
 | What | Command | Real APIs? |
 |---|---|---|
-| Backend tests (167) | `cd backend; .\.venv\Scripts\python.exe -m pytest` | No |
-| Frontend tests (66) | `cd frontend; npx ng test --watch=false` | No |
+| Backend tests (173) | `cd backend; .\.venv\Scripts\python.exe -m pytest` | No |
+| Frontend tests (77) | `cd frontend; npx ng test --watch=false` | No |
 | End-to-end check (backend running) | `cd backend; .\.venv\Scripts\python.exe scripts\e2e_check.py` | **Yes**, a few cents |
 | Search quality evaluation | `cd backend; .\.venv\Scripts\python.exe eval\run_eval.py [--agent]` | **Yes**. See [eval/README](backend/eval/README.md) |
 
@@ -145,7 +149,7 @@ Everything lives in `backend\data\` (excluded from Git):
 
 | Path | Contents |
 |---|---|
-| `filemind.db` | SQLite: one row per document (name, type, hash, status, counts) |
+| `filemind.db` | SQLite: one row per document (name, type, hash, status, counts), plus your search history (question, answer, matches, Claude token usage) |
 | `chroma\` | ChromaDB: chunk text, vectors and locations |
 | `uploads\` | Your original files, stored as `{file_id}.{ext}` |
 

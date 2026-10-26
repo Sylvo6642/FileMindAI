@@ -53,7 +53,12 @@
               {{ turn.query }}
             </div>
           </div>
-          <app-assistant-message [turn]="turn" (retry)="chat.retry($event)" />
+          <app-assistant-message
+            [turn]="turn"
+            [canRunAgain]="canSearch() && !chat.busy()"
+            (retry)="chat.retry($event)"
+            (runAgain)="send($event)"
+          />
         </div>
       }
     </div>

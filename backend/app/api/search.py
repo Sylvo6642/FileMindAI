@@ -1,3 +1,4 @@
+import logging
 from dataclasses import asdict
 
 from fastapi import APIRouter
@@ -12,9 +13,11 @@ from app.models.agent import (
     UsageOut,
 )
 from app.models.search import FileMatchOut, SemanticSearchRequest, SemanticSearchResponse
-from app.services import agent_service, search_service, vector_service
+from app.services import agent_service, history_service, search_service, vector_service
 from app.services.agent_service import AgentError
 from app.services.embedding_service import EmbeddingError
+
+logger = logging.getLogger("filemind")
 
 router = APIRouter(prefix="/api/search", tags=["search"])
 
@@ -45,7 +48,7 @@ def agent_search(request: AgentSearchRequest) -> AgentSearchResponse:
     except AgentError as exc:
         raise ApiError(502, "assistant_unavailable", str(exc))
 
-    return AgentSearchResponse(
+    response = AgentSearchResponse(
         query=query,
         answer=result.answer,
         matches=[
@@ -66,6 +69,12 @@ def agent_search(request: AgentSearchRequest) -> AgentSearchResponse:
         model=result.model,
         usage=UsageOut(input_tokens=result.input_tokens, output_tokens=result.output_tokens),
     )
+    try:
+        return history_service.save(response)
+    except Exception:
+        # The answer was already paid for: show it even if history can't be written.
+        logger.exception("Could not save search to history")
+        return response
 
 
 # Retrieval only, no LLM. Useful for debugging and for measuring retrieval quality.

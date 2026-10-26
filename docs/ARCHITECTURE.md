@@ -92,6 +92,11 @@ reconciles them at every startup (orphan files and vectors removed; documents wi
 missing original or partial vectors marked `failed`). Read-only report:
 `GET /api/debug/consistency`.
 
+Search history is separate: every finished `/api/search` answer is stored as JSON in
+the SQLite `searches` table (`history_service.py`) with its Claude token usage.
+Reopening one returns the stored answer without calling Claude; if a file it cites was
+deleted since, the UI says so instead of offering a broken link.
+
 ## 6. Key settings (`app/core/config.py`)
 
 | Setting | Value | Notes |
@@ -106,7 +111,7 @@ missing original or partial vectors marked `failed`). Read-only report:
 
 | Layer | Where | External APIs |
 |---|---|---|
-| Backend unit + API (167 tests) | `backend/tests/` | Faked (bag-of-words embedder, scripted Claude) |
-| Frontend (66 tests) | `frontend/src/**/*.spec.ts` | Faked HTTP backend |
+| Backend unit + API (173 tests) | `backend/tests/` | Faked (bag-of-words embedder, scripted Claude) |
+| Frontend (77 tests) | `frontend/src/**/*.spec.ts` | Faked HTTP backend |
 | End-to-end, live | `backend/scripts/e2e_check.py` | Real |
 | Search quality | `backend/eval/run_eval.py` | Real |

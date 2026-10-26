@@ -1,7 +1,7 @@
 """SQLite connection and schema.
 
-SQLite holds the *metadata* about each file (name, hash, status...).
-The vectors themselves will live in ChromaDB from Stage 3 onwards.
+SQLite holds the *metadata* about each file (name, hash, status...) and the
+search history. The vectors themselves live in ChromaDB.
 """
 
 import sqlite3
@@ -28,6 +28,20 @@ CREATE TABLE IF NOT EXISTS documents (
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL
 );
+
+-- Search history. The full answer is kept as JSON so an old search can be shown
+-- again without calling Claude; token counts are columns so totals are cheap.
+CREATE TABLE IF NOT EXISTS searches (
+    search_id     TEXT PRIMARY KEY,
+    query         TEXT NOT NULL,
+    response_json TEXT NOT NULL,
+    match_count   INTEGER NOT NULL,
+    input_tokens  INTEGER NOT NULL,
+    output_tokens INTEGER NOT NULL,
+    model         TEXT,
+    created_at    TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_searches_created_at ON searches (created_at);
 """
 
 

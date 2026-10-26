@@ -42,3 +42,22 @@ class AgentSearchResponse(BaseModel):
     tool_rounds: int
     model: str | None
     usage: UsageOut
+    # Set once the search is saved to history.
+    search_id: str | None = None
+    created_at: str | None = None
+
+
+class SearchSummaryOut(BaseModel):
+    search_id: str
+    query: str
+    created_at: str
+    match_count: int
+    usage: UsageOut
+
+
+class SearchHistoryOut(BaseModel):
+    count: int
+    searches: list[SearchSummaryOut]
+    # Over the whole history, not just the returned page.
+    total_searches: int
+    total_usage: UsageOut

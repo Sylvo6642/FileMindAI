@@ -1,8 +1,9 @@
+import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, output, signal } from '@angular/core';
 
-import { ChatStore } from '../core/chat.store';
 import { DocumentsStore } from '../core/documents.store';
 import { HealthResponse, HealthService } from '../core/health.service';
+import { HistoryStore } from '../core/history.store';
 import { KeysStore } from '../core/keys.store';
 import { DocumentRecord } from '../core/models';
 import { FileBadge } from '../ui/file-badge';
@@ -10,7 +11,7 @@ import { Icon } from '../ui/icon';
 
 @Component({
   selector: 'app-sidebar',
-  imports: [Icon, FileBadge],
+  imports: [Icon, FileBadge, DecimalPipe],
   templateUrl: './sidebar.html',
   host: {
     class: 'flex h-full w-72 flex-col border-r border-line bg-panel',
@@ -22,20 +23,21 @@ import { Icon } from '../ui/icon';
 })
 export class Sidebar {
   protected readonly docs = inject(DocumentsStore);
-  protected readonly chat = inject(ChatStore);
+  protected readonly history = inject(HistoryStore);
   private readonly keys = inject(KeysStore);
   private readonly healthService = inject(HealthService);
 
   readonly newSearch = output<void>();
   readonly upload = output<void>();
   readonly apiKeys = output<void>();
-  readonly turnSelected = output<number>();
+  readonly searchSelected = output<string>();
 
   protected readonly filter = signal('');
   protected readonly docsOpen = signal(true);
   protected readonly searchesOpen = signal(true);
   protected readonly menuFor = signal<string | null>(null);
   protected readonly confirmDelete = signal<string | null>(null);
+  protected readonly confirmClear = signal(false);
   protected readonly health = signal<HealthResponse | null>(null);
   protected readonly healthState = signal<'checking' | 'ok' | 'offline'>('checking');
 
@@ -76,6 +78,18 @@ export class Sidebar {
     this.checkHealth();
     void this.docs.load();
     void this.keys.load();
+    void this.history.load();
+  }
+
+  /** Two-step, like deleting a document: the first click arms it for a few seconds. */
+  protected clearHistory(): void {
+    if (!this.confirmClear()) {
+      this.confirmClear.set(true);
+      setTimeout(() => this.confirmClear.set(false), 4000);
+      return;
+    }
+    this.confirmClear.set(false);
+    void this.history.clear().catch(() => this.history.load());
   }
 
   protected toggleMenu(fileId: string, event: Event): void {

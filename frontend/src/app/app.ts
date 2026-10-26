@@ -3,6 +3,7 @@ import { Component, effect, inject, signal, viewChild } from '@angular/core';
 import { ChatView } from './chat/chat-view';
 import { ChatStore } from './core/chat.store';
 import { DocumentsStore } from './core/documents.store';
+import { HistoryStore } from './core/history.store';
 import { KeysStore } from './core/keys.store';
 import { Sidebar } from './layout/sidebar';
 import { ApiKeysDialog } from './settings/api-keys-dialog';
@@ -28,6 +29,7 @@ export class App {
   private readonly uploadDialog = viewChild.required(UploadDialog);
   private readonly keysDialog = viewChild.required(ApiKeysDialog);
   private readonly keys = inject(KeysStore);
+  private readonly history = inject(HistoryStore);
   /** Ask for missing keys once per page load; after "Later" the sidebar offers it again. */
   private keysPrompted = false;
 
@@ -37,6 +39,7 @@ export class App {
   constructor() {
     void this.docs.load();
     void this.keys.load();
+    void this.history.load();
     // A fresh clone has no backend/.env yet: ask for the keys straight away.
     effect(() => {
       if (this.keys.missing().length && !this.keysPrompted) {
@@ -56,9 +59,13 @@ export class App {
     this.chatView()?.focusComposer();
   }
 
-  protected showTurn(id: number): void {
+  protected async openSearch(searchId: string): Promise<void> {
     this.closeSidebarOnMobile();
-    this.chatView()?.scrollToTurn(id);
+    const turnId = await this.chat.open(searchId);
+    if (turnId !== null) {
+      // Wait a frame so a freshly opened search is rendered before scrolling to it.
+      requestAnimationFrame(() => this.chatView()?.scrollToTurn(turnId));
+    }
   }
 
   protected closeSidebarOnMobile(): void {

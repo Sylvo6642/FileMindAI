@@ -60,6 +60,11 @@ export interface ActivityStep {
   is_error: boolean;
 }
 
+export interface TokenUsage {
+  input_tokens: number;
+  output_tokens: number;
+}
+
 export interface AgentSearchResponse {
   query: string;
   answer: string;
@@ -67,5 +72,23 @@ export interface AgentSearchResponse {
   activity: ActivityStep[];
   tool_rounds: number;
   model: string | null;
-  usage: { input_tokens: number; output_tokens: number };
+  usage: TokenUsage;
+  /** Set once the backend has saved the search to history. */
+  search_id?: string | null;
+  created_at?: string | null;
+}
+
+export interface SearchSummary {
+  search_id: string;
+  query: string;
+  created_at: string;
+  match_count: number;
+  usage: TokenUsage;
+}
+
+export interface SearchHistory {
+  count: number;
+  searches: SearchSummary[];
+  total_searches: number;
+  total_usage: TokenUsage;
 }
